@@ -1,0 +1,3189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Boat Navigator v3.3</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""></script>
+
+<style>
+:root{
+  --bg1:#f0f9ff;--bg2:#fff7ed;--text:#0f172a;--muted:#6b7280;
+  --ring1:#60a5fa;--ring2:#34d399;--ring3:#f59e0b;--ring4:#f43f5e;
+  --tickMajor:#0f172a;--tickMinor:#6b7280bb;
+  --north:#ef4444;--east:#10b981;--south:#3b82f6;--west:#f59e0b;
+  --pointerA:#14b8a6;--pointerB:#0ea5e9;
+  --face:#ffffff;--innerRing:#e2e8f0;
+  --accent:#3b82f6;--ok:#10b981;--warn:#f59e0b;--danger:#ef4444;
+  --route:#06b6d4;--track:#ec4899;--saved:#94a3b8;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  color:var(--text);
+  background:radial-gradient(1200px 600px at 20% 10%,var(--bg1),transparent),
+             radial-gradient(1200px 600px at 80% 90%,var(--bg2),transparent),
+             #f8fafc;
+}
+button{font-family:inherit}
+
+.appbar{
+  height:52px;display:flex;align-items:center;gap:8px;padding:0 12px;
+  background:linear-gradient(90deg,#3b82f6,#06b6d4,#10b981);color:#fff;
+  position:fixed;top:0;left:0;right:0;z-index:600;box-shadow:0 4px 10px rgba(0,0,0,.18);
+}
+.appbar .title{font-weight:800;letter-spacing:.3px;font-size:15px;flex:0 0 auto}
+.appbar .pages{display:flex;gap:4px;background:rgba(255,255,255,.18);border-radius:10px;padding:3px}
+.appbar .pages button{
+  border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px;
+  background:transparent;color:#fff;cursor:pointer;
+}
+.appbar .pages button.active{background:#fff;color:#0b2545}
+.appbar .spacer{flex:1}
+.appbar .iconbtn{
+  border:0;border-radius:10px;padding:7px 12px;font-weight:700;font-size:12px;
+  cursor:pointer;color:#0b2545;background:linear-gradient(180deg,#e0f2fe,#bae6fd);
+  box-shadow:0 4px 10px rgba(2,8,23,.14);
+}
+.appbar .iconbtn.connect-ready{background:linear-gradient(180deg,#bbf7d0,#86efac);color:#064e3b}
+.appbar .iconbtn.disconnect-ready{background:linear-gradient(180deg,#fecaca,#fca5a5);color:#7f1d1d}
+.appbar .iconbtn.warn{background:linear-gradient(180deg,#fee2e2,#fecaca);color:#7f1d1d}
+
+main{position:absolute;top:52px;left:0;right:0;bottom:0;overflow:hidden}
+
+/* ========== COMPASS PAGE ========== */
+#pageCompass{display:block;height:100%;overflow:auto;padding:12px 12px 80px}
+.compass-grid{display:grid;gap:14px;align-items:start}
+@media(min-width:860px){.compass-grid{grid-template-columns:1fr 360px}}
+.compass-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+canvas#compass{width:100%;max-width:560px;aspect-ratio:1/1;display:block}
+.heading-overlay{position:absolute;text-align:center;pointer-events:none}
+.heading-big{font-size:64px;font-weight:900;color:var(--text);letter-spacing:.02em}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 8px 18px rgba(2,8,23,.06)}
+.card h2{margin:0 0 10px;font-size:15px;color:#0b2545;letter-spacing:.02em}
+.sp-row{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:6px;margin-bottom:10px}
+.sp-input{width:100%;border:0;outline:0;background:transparent;font-weight:800;font-size:22px;text-align:center;color:#0f172a;padding:8px}
+.sp-btn{
+  width:46px;height:46px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;
+  font-size:24px;font-weight:900;line-height:1;cursor:pointer;color:#0f172a;
+}
+.toggle-btn{
+  width:100%;padding:12px;font-size:15px;font-weight:800;border:0;border-radius:11px;cursor:pointer;
+  background:linear-gradient(180deg,#bbf7d0,#86efac);color:#064e3b;
+  margin-bottom:8px;
+}
+.toggle-btn.engaged{background:linear-gradient(180deg,#fee2e2,#fca5a5);color:#7f1d1d}
+.toggle-btn.warn{background:linear-gradient(180deg,#fef3c7,#fcd34d);color:#78350f}
+.statline{font-size:12px;color:var(--muted);line-height:1.5;margin-top:4px}
+.statline .v{font-weight:800;color:var(--text)}
+
+/* ========== MAP PAGE ========== */
+#pageMap{display:none;height:100%;position:relative}
+#map{position:absolute;top:0;left:0;right:0;bottom:0;background:#cfe6f4}
+.map-toolbar{
+  position:absolute;top:8px;left:8px;right:8px;display:flex;gap:6px;z-index:550;
+  flex-wrap:wrap;pointer-events:none;
+}
+.map-toolbar .group{
+  display:flex;gap:0;background:#fff;border-radius:10px;
+  box-shadow:0 4px 12px rgba(2,8,23,.18);overflow:hidden;pointer-events:auto;
+}
+.map-toolbar button{
+  border:0;background:#fff;color:#0b2545;padding:8px 11px;font-size:13px;font-weight:700;cursor:pointer;
+  border-right:1px solid #e2e8f0;min-width:0;
+}
+.map-toolbar .group button:last-child{border-right:0}
+.map-toolbar button.active{background:#0ea5e9;color:#fff}
+.map-toolbar button.recording{background:#ef4444;color:#fff}
+.map-toolbar button:hover{background:#f1f5f9}
+.map-toolbar button.active:hover,.map-toolbar button.recording:hover{filter:brightness(1.05)}
+
+.map-stats{
+  position:absolute;left:8px;bottom:8px;right:8px;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(6px);
+  border-radius:12px;padding:8px 10px;font-size:12px;line-height:1.5;
+  box-shadow:0 4px 12px rgba(2,8,23,.18);z-index:550;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;
+}
+.map-stats .k{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.map-stats .v{color:#0b2545;font-weight:800;font-size:14px}
+.map-stats .v.warn{color:#b45309}
+.map-stats .v.danger{color:#b91c1c}
+
+.boat-marker{
+  width:30px;height:30px;
+  background:radial-gradient(circle at 50% 65%,#0ea5e9,#0369a1);
+  border:2px solid #fff;border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow:0 0 0 2px rgba(14,165,233,.3),0 4px 8px rgba(0,0,0,.3);
+  transform-origin:50% 50%;
+  position:relative;
+}
+.boat-marker::after{
+  content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-bottom:10px solid #ffffff;
+  filter:drop-shadow(0 0 1px rgba(0,0,0,.5));
+}
+.wp-marker-end{
+  width:18px;height:18px;background:var(--route);border:3px solid #fff;border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.wp-marker-mid{
+  width:14px;height:14px;background:#fff;border:2px solid var(--route);border-radius:50%;
+  box-shadow:0 2px 4px rgba(0,0,0,.3);
+}
+
+/* ========== ENGAGE PANEL (shared - draws on both pages) ========== */
+.ap-panel{
+  position:fixed;right:10px;bottom:10px;z-index:50;
+  background:rgba(255,255,255,.96);
+  border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px;
+  box-shadow:0 6px 18px rgba(2,8,23,.18);
+  min-width:220px;max-width:260px;
+  font-size:12px;
+  pointer-events:auto;
+}
+.ap-panel.on-map{bottom:80px;z-index:550}      /* avoid clobbering map-stats bar */
+.ap-panel .ttl{font-weight:800;font-size:11px;letter-spacing:.06em;color:#0b2545;margin-bottom:6px}
+.ap-engage-btn{
+  width:100%;padding:11px;font-size:14px;font-weight:800;border:0;border-radius:11px;cursor:pointer;
+  background:linear-gradient(180deg,#bbf7d0,#86efac);color:#064e3b;
+  margin-bottom:6px;
+}
+.ap-engage-btn.engaged{background:linear-gradient(180deg,#fee2e2,#fca5a5);color:#7f1d1d}
+.ap-engage-btn.warn{background:linear-gradient(180deg,#fef3c7,#fcd34d);color:#78350f}
+
+/* ========== SETUP OVERLAY ========== */
+#pageSetup{display:none;position:absolute;top:52px;left:0;right:0;bottom:0;background:#f8fafc;overflow:auto;padding:12px;z-index:570}
+.setup-row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.setup-row label{flex:0 0 160px;color:var(--muted);font-size:13px}
+.setup-row input,.setup-row select{
+  flex:1 1 120px;padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:14px;
+}
+.setup-actions{display:flex;gap:8px;justify-content:flex-end;padding-top:10px;margin-top:10px;border-top:1px solid #e5e7eb}
+.btn{border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer}
+.btn.primary{background:linear-gradient(180deg,#22c55e,#16a34a);color:#fff}
+.btn.ghost{background:linear-gradient(180deg,#e0f2fe,#bae6fd);color:#0b2545}
+
+/* ========== TOAST ========== */
+.toast{
+  position:fixed;left:50%;bottom:120px;transform:translateX(-50%);
+  background:#0f172a;color:#fff;padding:9px 14px;border-radius:10px;
+  font-size:13px;z-index:9000;box-shadow:0 6px 18px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;
+}
+.toast.show{opacity:.95}
+
+/* iOS-style modal for prompts (because window.prompt() looks ugly on tablet) */
+.modal-back{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.show{display:flex}
+.modal{background:#fff;border-radius:16px;padding:18px;min-width:280px;max-width:380px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.modal h3{margin:0 0 12px;font-size:16px;color:#0b2545}
+.modal input,.modal select{width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:8px}
+.modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.modal .row button{padding:9px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+.modal .ok{background:#22c55e;color:#fff}
+.modal .cancel{background:#e2e8f0;color:#0b2545}
+.modal ul.routes{list-style:none;margin:0;padding:0;max-height:280px;overflow:auto}
+.modal ul.routes li{padding:10px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.modal ul.routes li:hover{background:#f8fafc}
+.modal ul.routes li .meta{font-size:11px;color:var(--muted)}
+.modal ul.routes li button.del{padding:4px 8px;font-size:11px;background:#fee2e2;color:#7f1d1d}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="title">⚓ Boat Navigator</div>
+  <div class="pages">
+    <button id="navCompassBtn" class="active">Compass</button>
+    <button id="navMapBtn">Map</button>
+  </div>
+  <div class="spacer"></div>
+  <button id="setupBtn" class="iconbtn warn">Setup</button>
+  <button id="connBtn" class="iconbtn connect-ready">Connect</button>
+</div>
+
+<main>
+  <!-- ============ COMPASS PAGE ============ -->
+  <section id="pageCompass">
+    <div class="compass-grid">
+      <div>
+        <div class="compass-wrap">
+          <canvas id="compass" width="560" height="560"></canvas>
+          <div class="heading-overlay">
+            <div class="heading-big" id="headingText">0°</div>
+            <div class="statline" id="hdgSrcLine">awaiting compass…</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h2>Desired Heading</h2>
+          <div class="sp-row">
+            <button id="spMinus" class="sp-btn">−</button>
+            <input id="spInput" class="sp-input" type="number" inputmode="numeric" min="0" max="359" placeholder="0–359">
+            <button id="spPlus" class="sp-btn">+</button>
+          </div>
+          <div class="statline">Error: <span class="v" id="errVal">—</span></div>
+          <div class="statline">Sent target: <span class="v" id="sentTgt">—</span></div>
+          <div class="statline">Nav PID: <span class="v" id="navPid">—</span></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h2>Quick set</h2>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+            <button class="sp-btn quickHdg" data-h="0">N</button>
+            <button class="sp-btn quickHdg" data-h="90">E</button>
+            <button class="sp-btn quickHdg" data-h="180">S</button>
+            <button class="sp-btn quickHdg" data-h="270">W</button>
+          </div>
+          <div class="statline" style="margin-top:8px">Tap to set desired heading to a cardinal point.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAP PAGE ============ -->
+  <section id="pageMap">
+    <div id="map"></div>
+    <div class="map-toolbar">
+      <div class="group">
+        <button id="tilesBtn" title="Pick tiles folder">📁 Tiles</button>
+        <button id="seamarksBtn" title="OpenSeaMap overlay">⚓ Seamarks</button>
+      </div>
+      <div class="group">
+        <button id="drawBtn" title="Long-press map to set endpoint">✏️ Draw</button>
+        <button id="recordBtn" title="Record actual track">⏺ Record</button>
+        <button id="clearRouteBtn" title="Clear current route">🗑 Clear</button>
+      </div>
+      <div class="group">
+        <button id="saveRouteBtn" title="Save current route">💾 Save</button>
+        <button id="loadRouteBtn" title="Load saved route">📂 Load</button>
+        <button id="exportBtn" title="Export all routes as JSON">⬇ Export</button>
+      </div>
+      <div class="group">
+        <button id="centerBoatBtn" title="Center on boat">🎯</button>
+        <button id="unitsBtn" title="Toggle units">m / km</button>
+      </div>
+    </div>
+    <div class="map-stats">
+      <div><div class="k">Speed</div><div class="v" id="mSpeed">—</div></div>
+      <div><div class="k">Heading</div><div class="v" id="mHeading">—</div></div>
+      <div><div class="k">Route len</div><div class="v" id="mRouteLen">—</div></div>
+      <div><div class="k">Remaining</div><div class="v" id="mRemain">—</div></div>
+      <div><div class="k">ETA</div><div class="v" id="mEta">—</div></div>
+      <div><div class="k">XTE</div><div class="v" id="mXte">—</div></div>
+      <div><div class="k">GPS</div><div class="v" id="mGpsSrc">—</div></div>
+      <div><div class="k">WP</div><div class="v" id="mWp">—</div></div>
+    </div>
+    <input type="file" id="tilesInput" webkitdirectory multiple style="display:none">
+  </section>
+
+  <!-- ============ SETUP PAGE ============ -->
+  <section id="pageSetup">
+    <h2 style="margin:8px 0 14px">Setup</h2>
+
+    <div class="card" style="margin-bottom:10px">
+      <h2>Compass calibration</h2>
+      <div class="setup-row"><label for="hdgOffset">Heading offset (°)</label><input id="hdgOffset" type="number" step="1" value="0"></div>
+      <div class="setup-row"><label></label><button id="calNorthBtn" class="btn ghost" style="flex:0 0 auto">Set current as North (0°)</button></div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+      <h2>IMU orientation zero (BNO055)</h2>
+      <div class="statline" style="margin:-2px 0 8px">
+        Travel in a straight, level line and tap Zero on the axes you want trimmed.
+        Offsets are subtracted from the live BNO reading before it's displayed.
+      </div>
+
+      <div class="setup-row">
+        <label for="bnoRollOff">Roll offset (°)</label>
+        <input id="bnoRollOff" type="number" step="0.1" value="0" style="flex:0 0 90px">
+        <span style="flex:0 0 auto;color:var(--muted);font-size:13px">Live:</span>
+        <span id="bnoRollLive" style="flex:0 0 70px;font-weight:700;font-variant-numeric:tabular-nums">—</span>
+        <button id="bnoRollZeroBtn" class="btn ghost" style="flex:0 0 auto;padding:6px 14px">Zero</button>
+      </div>
+
+      <div class="setup-row">
+        <label for="bnoPitchOff">Pitch offset (°)</label>
+        <input id="bnoPitchOff" type="number" step="0.1" value="0" style="flex:0 0 90px">
+        <span style="flex:0 0 auto;color:var(--muted);font-size:13px">Live:</span>
+        <span id="bnoPitchLive" style="flex:0 0 70px;font-weight:700;font-variant-numeric:tabular-nums">—</span>
+        <button id="bnoPitchZeroBtn" class="btn ghost" style="flex:0 0 auto;padding:6px 14px">Zero</button>
+      </div>
+
+      <div class="setup-row">
+        <label>Heading (live)</label>
+        <span style="flex:0 0 90px;color:var(--muted);font-size:12px">use offset above</span>
+        <span style="flex:0 0 auto;color:var(--muted);font-size:13px">Live:</span>
+        <span id="bnoHdgLive" style="flex:0 0 70px;font-weight:700;font-variant-numeric:tabular-nums">—</span>
+        <button id="bnoHdgZeroBtn" class="btn ghost" style="flex:0 0 auto;padding:6px 14px">Zero</button>
+      </div>
+
+      <div class="setup-row"><label></label>
+        <button id="bnoResetZeroBtn" class="btn ghost" style="flex:0 0 auto">Clear all IMU offsets</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+      <h2>Steering direction</h2>
+      <div class="setup-row">
+        <label>Reverse output</label>
+        <button id="reverseBtn" class="toggle-btn" style="flex:0 0 auto;width:auto;padding:9px 16px">Normal</button>
+      </div>
+      <div class="setup-row"><label></label>
+        <div style="flex:1;color:var(--muted);font-size:12px;line-height:1.45">
+          Flips the sign of every PID output before it's sent to the Motion ESP. Use if the boat steers the wrong way during a sea trial. The setting is saved in the Nav ESP and survives reboots.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+      <h2>Display units</h2>
+      <div class="setup-row">
+        <label>Distance</label>
+        <select id="unitDist">
+          <option value="metric">metres / kilometres</option>
+          <option value="nautical">nautical miles</option>
+        </select>
+      </div>
+      <div class="setup-row">
+        <label>Speed</label>
+        <select id="unitSpeed">
+          <option value="kmh">km/h</option>
+          <option value="kts">knots</option>
+          <option value="ms">m/s</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+      <h2>Route follow</h2>
+      <div class="setup-row"><label for="advRadius">Waypoint radius (m)</label><input id="advRadius" type="number" step="1" min="3" max="200" value="25"></div>
+      <div class="setup-row"><label for="trackInterval">Track sample (s)</label><input id="trackInterval" type="number" step="1" min="1" max="60" value="2"></div>
+    </div>
+
+    <div class="setup-actions">
+      <button id="setupBackBtn" class="btn ghost">Back</button>
+      <button id="setupSaveBtn" class="btn primary">Save</button>
+    </div>
+  </section>
+</main>
+
+<!-- Shared engage panel — JS will move it between pages -->
+<div id="apPanel" class="ap-panel">
+  <div class="ttl">AUTOPILOT</div>
+  <button id="engageBtn" class="ap-engage-btn">Engage</button>
+  <div class="statline">
+    Motion: <span class="v" id="apMotion">—</span><br>
+    Link: <span class="v" id="apLink">—</span>
+  </div>
+  <div class="statline" id="apReverseRow" style="display:none;color:#dc2626;font-weight:700;margin-top:4px">⚠ Steering REVERSED</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Generic modal -->
+<div class="modal-back" id="modalBack">
+  <div class="modal" id="modal">
+    <h3 id="modalTitle">…</h3>
+    <div id="modalBody"></div>
+    <div class="row" id="modalRow">
+      <button class="cancel" id="modalCancel">Cancel</button>
+      <button class="ok" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   STATE
+===================================================================== */
+const STATE = {
+  // BLE
+  ble: {
+    device: null, server: null, svc: null, txChar: null, rxChar: null,
+    connected:false,
+    SVC_UUID:'6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+    WRITE_UUID:'6e400002-b5a3-f393-e0a9-e50e24dcca9e',  // we WRITE to this
+    NOTIFY_UUID:'6e400003-b5a3-f393-e0a9-e50e24dcca9e', // we LISTEN to this
+  },
+
+  // Compass / heading
+  hdg: { value:null, srcAt:0, displayed:0, filtered:0, src:'—' },
+
+  // GPS fix (from BLE GPS:lat,lon,spd,hdg or from navigator.geolocation)
+  fix: { lat:null, lng:null, spd:null, cog:null, accuracy:null, ts:0, src:'—' },
+  fixHistory: [],   // last few fixes for speed averaging
+
+  // Autopilot state
+  ap: {
+    apState:null,    // 'AUTO'|'STANDBY'|null  (from STATE: notifications)
+    apReason:null,
+    apBeatAt:0,
+    targetSent:null, // last TARGET sent
+    targetSentAt:0,
+  },
+
+  // Map
+  map: null,
+  baseLayer: null,
+  seamarkLayer: null,
+  boatMarker: null,
+  followBoat: true,
+
+  // Drawing
+  drawMode: false,
+  route: { points:[], polyline:null, markers:[] },     // planned route ({lat,lng}, ...)
+  trackLive: { points:[], polyline:null, recording:false },
+
+  // Tiles
+  tilesPicked: null,           // Map<"z/x/y", File>
+  tilesPickedName: null,
+  tilesMinZ: null, tilesMaxZ: null,
+
+  // Settings (persisted)
+  settings: loadSettings(),
+};
+
+/* =====================================================================
+   PERSISTENCE
+===================================================================== */
+function loadSettings(){
+  try{
+    const s = JSON.parse(localStorage.getItem('bn_settings')||'{}') || {};
+    return {
+      kp:    s.kp   ?? 2.0,
+      ki:    s.ki   ?? 0.05,
+      kd:    s.kd   ?? 0.3,
+      db:    s.db   ?? 1.0,
+      hdgOff:s.hdgOff?? 0,
+      bnoRollOff:  s.bnoRollOff  ?? 0,
+      bnoPitchOff: s.bnoPitchOff ?? 0,
+      unitDist:  s.unitDist  || 'metric',     // 'metric'|'nautical'
+      unitSpeed: s.unitSpeed || 'kmh',        // 'kmh'|'kts'|'ms'
+      advRadius: s.advRadius ?? 25,
+      trackInterval: s.trackInterval ?? 2,
+      lastTilesName: s.lastTilesName || null, // remembered for display only
+    };
+  }catch(e){ return { kp:2.0, ki:0.05, kd:0.3, db:1, hdgOff:0, bnoRollOff:0, bnoPitchOff:0, unitDist:'metric', unitSpeed:'kmh', advRadius:25, trackInterval:2 }; }
+}
+function saveSettings(){ localStorage.setItem('bn_settings', JSON.stringify(STATE.settings)); }
+
+function listSavedRoutes(){
+  try{ return JSON.parse(localStorage.getItem('bn_routes')||'[]') || []; }catch(_){ return []; }
+}
+function writeSavedRoutes(arr){ localStorage.setItem('bn_routes', JSON.stringify(arr)); }
+
+/* =====================================================================
+   GEOMETRY HELPERS
+===================================================================== */
+const D2R = Math.PI/180, R2D = 180/Math.PI, EARTH_R = 6371000;
+function toRad(d){ return d*D2R; }
+function wrap360(a){ a = a%360; if(a<0) a+=360; return a; }
+function angDiff(a,b){ let d=(b-a+540)%360-180; return d; }
+function bearing(lat1,lon1,lat2,lon2){
+  const φ1=toRad(lat1),φ2=toRad(lat2),Δλ=toRad(lon2-lon1);
+  const y=Math.sin(Δλ)*Math.cos(φ2);
+  const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return wrap360(Math.atan2(y,x)*R2D);
+}
+function distMeters(lat1,lon1,lat2,lon2){
+  const φ1=toRad(lat1),φ2=toRad(lat2),dφ=toRad(lat2-lat1),dλ=toRad(lon2-lon1);
+  const a=Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+  return 2*EARTH_R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+// cross-track distance: signed perpendicular distance from point to great-circle defined by (a,b)
+function crossTrack(lat,lon, lat1,lon1, lat2,lon2){
+  const δ13 = distMeters(lat1,lon1,lat,lon)/EARTH_R;
+  const θ13 = toRad(bearing(lat1,lon1,lat,lon));
+  const θ12 = toRad(bearing(lat1,lon1,lat2,lon2));
+  return Math.asin(Math.sin(δ13)*Math.sin(θ13-θ12))*EARTH_R;
+}
+
+/* =====================================================================
+   UNIT FORMATTERS
+===================================================================== */
+function fmtDist(m){
+  if (m == null || !isFinite(m)) return '—';
+  if (STATE.settings.unitDist === 'nautical'){
+    const nm = m / 1852;
+    if (nm < 0.5) return Math.round(m) + ' m';
+    return nm.toFixed(nm<10?2:1) + ' nm';
+  }
+  if (m < 1000) return Math.round(m) + ' m';
+  return (m/1000).toFixed(m<10000?2:1) + ' km';
+}
+function fmtSpeed(mps){
+  if (mps == null || !isFinite(mps)) return '—';
+  switch(STATE.settings.unitSpeed){
+    case 'kts': return (mps*1.94384).toFixed(1) + ' kt';
+    case 'ms':  return mps.toFixed(2) + ' m/s';
+    default:    return (mps*3.6).toFixed(1) + ' km/h';
+  }
+}
+function fmtEta(seconds){
+  if (seconds == null || !isFinite(seconds) || seconds <= 0) return '—';
+  if (seconds < 60) return Math.round(seconds) + 's';
+  if (seconds < 3600) return Math.floor(seconds/60) + 'm ' + Math.round(seconds%60) + 's';
+  const h = Math.floor(seconds/3600), m = Math.round((seconds%3600)/60);
+  return h + 'h ' + m + 'm';
+}
+
+/* =====================================================================
+   TOAST + MODAL
+===================================================================== */
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function toast(msg, ms){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove('show'), ms||1800);
+}
+
+function modal({title, html, okLabel='OK', cancelLabel='Cancel', onOk, onCancel, hideOk}){
+  const back = document.getElementById('modalBack');
+  document.getElementById('modalTitle').textContent = title || '';
+  document.getElementById('modalBody').innerHTML = html || '';
+  const ok = document.getElementById('modalOk');
+  const cancel = document.getElementById('modalCancel');
+  ok.textContent = okLabel;
+  cancel.textContent = cancelLabel;
+  ok.style.display = hideOk ? 'none' : '';
+  back.classList.add('show');
+  function close(){ back.classList.remove('show'); ok.onclick=null; cancel.onclick=null; }
+  ok.onclick = ()=>{ const keep = onOk && onOk(); if (!keep) close(); };
+  cancel.onclick = ()=>{ if (onCancel) onCancel(); close(); };
+}
+
+/* =====================================================================
+   PAGE NAV
+===================================================================== */
+let currentPage = 'compass';   // 'compass' | 'map' | 'setup' | 'diag'
+
+function showPage(name){
+  const prevPage = currentPage;
+  currentPage = name;
+  document.getElementById('pageCompass').style.display = (name==='compass') ? 'block' : 'none';
+  document.getElementById('pageMap').style.display     = (name==='map')     ? 'block' : 'none';
+  document.getElementById('pageSetup').style.display   = (name==='setup')   ? 'block' : 'none';
+  document.getElementById('navCompassBtn').classList.toggle('active', name==='compass');
+  document.getElementById('navMapBtn').classList.toggle('active', name==='map');
+  // Move the engage panel to the right position
+  const ap = document.getElementById('apPanel');
+  ap.classList.toggle('on-map', name==='map');
+  ap.style.display = (name==='setup') ? 'none' : 'block';
+  // Map needs to recalc size when shown
+  if (name==='map' && STATE.map){
+    setTimeout(()=>{ STATE.map.invalidateSize(); }, 50);
+  }
+  // SAFETY: switching between the two active steering modes always
+  // disengages autopilot. The user must explicitly re-engage in the new
+  // mode. Switching to/from Setup or Diag does not disengage — those are
+  // auxiliary screens that don't change what the boat is steering toward.
+  const isMode = p => (p === 'compass' || p === 'map');
+  const switchedActiveMode = isMode(prevPage) && isMode(name) && prevPage !== name;
+  if (switchedActiveMode && STATE.ap.apState === 'AUTO' && STATE.ble.connected){
+    bleWrite('MODE:STANDBY');
+    bleWrite('ERR:0');
+    toast('Autopilot disengaged — re-engage to continue');
+  }
+}
+
+// Used by both the engage button and the page-switch hand-over.
+// Returns an integer target bearing to the active waypoint, or null
+// if we don't have enough info to follow a route.
+function computeRouteTarget(){
+  if (!STATE.route || STATE.route.points.length < 2) return null;
+  if (STATE.fix.lat == null) return null;
+  // Find first un-reached waypoint
+  let idx = 1;
+  for (; idx < STATE.route.points.length; idx++){
+    const p = STATE.route.points[idx];
+    if (distMeters(STATE.fix.lat, STATE.fix.lng, p.lat, p.lng) > STATE.settings.advRadius) break;
+  }
+  if (idx >= STATE.route.points.length) return null;  // already at end
+  const wp = STATE.route.points[idx];
+  return Math.round(bearing(STATE.fix.lat, STATE.fix.lng, wp.lat, wp.lng));
+}
+document.getElementById('navCompassBtn').onclick = ()=>showPage('compass');
+document.getElementById('navMapBtn').onclick     = ()=>{ ensureMap(); showPage('map'); };
+document.getElementById('setupBtn').onclick      = ()=>{ fillSetupForm(); showPage('setup'); };
+document.getElementById('setupBackBtn').onclick  = ()=>showPage('compass');
+
+/* =====================================================================
+   BLE (Web Bluetooth)
+   - Sends:  TARGET:<deg>, MODE:AUTO/STANDBY, KP/KI/KD/DEADBAND
+   - Listens: HDG:, STATE:, TGT:, PID:, GPS:lat,lon,spd,hdg
+===================================================================== */
+async function bleConnect(){
+  if (!('bluetooth' in navigator)) { alert('Web Bluetooth not supported here. Use Chrome on Android/Desktop.'); return; }
+  try{
+    const dev = await navigator.bluetooth.requestDevice({
+      filters:[{services:[STATE.ble.SVC_UUID]}],
+      optionalServices:[STATE.ble.SVC_UUID]
+    });
+    dev.addEventListener('gattserverdisconnected', onDisc);
+    const srv = await dev.gatt.connect();
+    const svc = await srv.getPrimaryService(STATE.ble.SVC_UUID);
+    const wr  = await svc.getCharacteristic(STATE.ble.WRITE_UUID);
+    const nf  = await svc.getCharacteristic(STATE.ble.NOTIFY_UUID);
+    await nf.startNotifications();
+    nf.addEventListener('characteristicvaluechanged', onNotify);
+    Object.assign(STATE.ble,{ device:dev, server:srv, svc, txChar:wr, rxChar:nf, connected:true });
+    updateConnUI();
+    toast('Connected');
+  }catch(e){
+    console.warn('BLE connect failed', e);
+    alert('Connect failed: ' + (e.message||e));
+  }
+}
+function onDisc(){
+  STATE.ble.connected = false;
+  STATE.ble.txChar = null;
+  STATE.ap.apBeatAt = 0;
+  STATE.ap.apState = null;
+  STATE.ap.apReason = null;
+  updateConnUI();
+  paintEngage();
+  toast('Disconnected');
+}
+async function bleDisconnect(){
+  try{ STATE.ble.device && STATE.ble.device.gatt && STATE.ble.device.gatt.disconnect(); }catch(_){}
+  onDisc();
+}
+let writeQueue = [], writeBusy = false;
+async function bleWrite(line){
+  if (!STATE.ble.connected || !STATE.ble.txChar) return;
+  if (!line.endsWith('\n')) line += '\n';
+  writeQueue.push(line);
+  if (writeBusy) return;
+  writeBusy = true;
+  while(writeQueue.length){
+    const next = writeQueue.shift();
+    const enc = new TextEncoder().encode(next);
+    // Chunk to 20 bytes for safety on tight MTUs.
+    for(let i=0;i<enc.length;i+=20){
+      const slice = enc.slice(i, Math.min(i+20, enc.length));
+      try{
+        if (typeof STATE.ble.txChar.writeValueWithoutResponse === 'function'){
+          await STATE.ble.txChar.writeValueWithoutResponse(slice);
+        } else {
+          await STATE.ble.txChar.writeValue(slice);
+        }
+      }catch(e){
+        try{ await STATE.ble.txChar.writeValue(slice); }catch(_){ console.warn('write failed', e); }
+      }
+      await new Promise(r=>setTimeout(r, 4));
+    }
+  }
+  writeBusy = false;
+}
+
+let rxBuf = '';
+let rxFlushTimer = null;
+function onNotify(ev){
+  const txt = new TextDecoder().decode(ev.target.value);
+  rxBuf += txt;
+  // Pass 1: handle \n-terminated lines (e.g. STATE forwarded from Motion ESP)
+  let nl;
+  while ((nl = rxBuf.indexOf('\n')) >= 0){
+    let line = rxBuf.slice(0, nl);
+    rxBuf = rxBuf.slice(nl+1);
+    if (line.endsWith('\r')) line = line.slice(0,-1);
+    if (line) handleLine(line);
+  }
+  // Pass 2: most Nav ESP notifications (HDG, TGT, PID, GPS) arrive WITHOUT a
+  // trailing \n. Each notification is a complete message, but a single message
+  // can also be split across two BLE chunks (~20 bytes). Wait a brief moment
+  // for any continuation, then treat whatever is left as a complete line.
+  if (rxBuf.length > 0){
+    clearTimeout(rxFlushTimer);
+    rxFlushTimer = setTimeout(()=>{
+      if (rxBuf.length > 0){
+        const line = rxBuf.trim();
+        rxBuf = '';
+        if (line) handleLine(line);
+      }
+    }, 30);
+  }
+  if (rxBuf.length > 4096) rxBuf = '';
+}
+function handleLine(line){
+  if (line.startsWith('HDG:')) {
+    const v = parseFloat(line.slice(4));
+    if (!isNaN(v)){
+      STATE.hdg.value = wrap360(v + (STATE.settings.hdgOff||0));
+      STATE.hdg.srcAt = performance.now();
+      STATE.hdg.src = 'BLE';
+    }
+    return;
+  }
+  if (line.startsWith('STATE:')){
+    const body = line.slice(6);
+    const parts = body.split(':');
+    STATE.ap.apState  = (parts[0]||'').toUpperCase();
+    STATE.ap.apReason = ((parts[1]||'').toUpperCase()) || null;
+    STATE.ap.apBeatAt = performance.now();
+    paintEngage();
+    return;
+  }
+  if (line.startsWith('TGT:')){
+    document.getElementById('sentTgt').textContent = line.slice(4) + '°';
+    return;
+  }
+  if (line.startsWith('PID:')){
+    const p = line.slice(4).split(',').map(Number);
+    if (p.length >= 4){
+      document.getElementById('navPid').textContent =
+        `Kp ${p[0].toFixed(2)}, Ki ${p[1].toFixed(3)}, Kd ${p[2].toFixed(2)}, db ${p[3].toFixed(1)}°`;
+    }
+    return;
+  }
+  if (line.startsWith('GPS:')){
+    // Format: GPS:lat,lon,speed_mps,heading_deg,fix
+    const parts = line.slice(4).split(',');
+    if (parts.length >= 4){
+      const lat = parseFloat(parts[0]);
+      const lon = parseFloat(parts[1]);
+      const spd = parseFloat(parts[2]);
+      const cog = parseFloat(parts[3]);
+      if (!isNaN(lat) && !isNaN(lon)){
+        ingestFix({ lat, lng:lon, spd:isNaN(spd)?null:spd, cog:isNaN(cog)?null:cog, accuracy:null, src:'ESP' });
+      }
+    }
+    return;
+  }
+  if (line.startsWith('REV:')){
+    const v = line.slice(4).trim();
+    STATE.ap.reversed = (v === '1' || v.toUpperCase() === 'TRUE' || v.toUpperCase() === 'ON');
+    paintReverseBtn();
+    paintEngage();
+    return;
+  }
+}
+
+// ---- Reverse button ----
+function paintReverseBtn(){
+  const btn = document.getElementById('reverseBtn');
+  if (!btn) return;
+  const on = !!(STATE.ap && STATE.ap.reversed);
+  btn.textContent = on ? 'Reversed' : 'Normal';
+  btn.classList.toggle('engaged', on);   // reuses red look from engaged style
+}
+
+/* =====================================================================
+   GPS ingestion (BLE preferred, browser fallback)
+===================================================================== */
+function ingestFix(f){
+  STATE.fix.lat = f.lat; STATE.fix.lng = f.lng;
+  STATE.fix.spd = f.spd; STATE.fix.cog = f.cog;
+  STATE.fix.accuracy = f.accuracy ?? null;
+  STATE.fix.ts = performance.now();
+  STATE.fix.src = f.src;
+  STATE.fixHistory.push({lat:f.lat,lng:f.lng,ts:Date.now()});
+  while(STATE.fixHistory.length > 8) STATE.fixHistory.shift();
+
+  // If we don't have a speed from the fix, derive one from history
+  if (STATE.fix.spd == null && STATE.fixHistory.length >= 2){
+    const h = STATE.fixHistory;
+    const a = h[h.length-2], b = h[h.length-1];
+    const dt = (b.ts - a.ts) / 1000;
+    if (dt > 0.05){
+      const d = distMeters(a.lat,a.lng,b.lat,b.lng);
+      STATE.fix.spd = d / dt;
+    }
+  }
+
+  // Live track recording
+  if (STATE.trackLive.recording){
+    const arr = STATE.trackLive.points;
+    const last = arr[arr.length-1];
+    if (!last || distMeters(last.lat,last.lng,f.lat,f.lng) > 3){
+      arr.push({ lat:f.lat, lng:f.lng, ts:Date.now() });
+      if (STATE.trackLive.polyline) STATE.trackLive.polyline.setLatLngs(arr.map(p=>[p.lat,p.lng]));
+    }
+  }
+
+  updateBoatMarker();
+  if (STATE.followBoat && STATE.map){
+    STATE.map.panTo([f.lat,f.lng], { animate:true, duration:0.5 });
+  }
+}
+
+// Browser geolocation fallback removed — ESP GPS is the only source.
+// The boat icon won't appear on the map until the Nav ESP sends a GPS:
+// notification with a valid fix. Use the Diag page to see why if it doesn't.
+function startBrowserGeo(){ /* intentionally disabled */ }
+
+/* =====================================================================
+   COMPASS DRAWING
+===================================================================== */
+const cvs = document.getElementById('compass');
+const ctx = cvs.getContext('2d');
+function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || v; }
+
+function drawCompass(angle){
+  const dpr = window.devicePixelRatio || 1;
+  if (cvs._dpr !== dpr){
+    cvs._dpr = dpr;
+    cvs.width  = Math.round(560*dpr);
+    cvs.height = Math.round(560*dpr);
+    cvs.style.width = '560px';
+    cvs.style.height = '560px';
+  }
+  const R = cvs.width/2;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.save(); ctx.translate(R,R);
+
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(0,0,R*0.96,0,Math.PI*2); ctx.fill();
+
+  // outer rings, four arcs in different colours
+  function arc(col,a0,a1,w){ ctx.strokeStyle=col; ctx.lineWidth=w; ctx.beginPath(); ctx.arc(0,0,R*0.86,a0,a1); ctx.stroke(); }
+  const w = 12*dpr;
+  arc('#60a5fa',0,Math.PI/2,w);
+  arc('#34d399',Math.PI/2,Math.PI,w);
+  arc('#f59e0b',Math.PI,3*Math.PI/2,w);
+  arc('#f43f5e',3*Math.PI/2,2*Math.PI,w);
+
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 6*dpr;
+  ctx.beginPath(); ctx.arc(0,0,R*0.80,0,Math.PI*2); ctx.stroke();
+
+  ctx.rotate((-angle)*D2R);
+  for(let i=0;i<360;i+=5){
+    const major = (i%30===0);
+    ctx.strokeStyle = major ? '#0f172a' : 'rgba(107,114,128,.7)';
+    ctx.lineWidth   = (major?3:2)*dpr;
+    const len = major ? R*0.12 : R*0.06;
+    ctx.beginPath(); ctx.moveTo(0,-R*0.76); ctx.lineTo(0,-R*0.76+len); ctx.stroke();
+    if (major){
+      ctx.save();
+      ctx.translate(0,-R*0.76+len+18*dpr);
+      ctx.rotate(Math.PI);
+      let lab = String(i), col='#0f172a';
+      if (i===0){ lab='N'; col='#ef4444'; }
+      if (i===90){ lab='E'; col='#10b981'; }
+      if (i===180){lab='S'; col='#3b82f6'; }
+      if (i===270){lab='W'; col='#f59e0b'; }
+      ctx.fillStyle = col;
+      ctx.font = `900 ${18*dpr}px system-ui, sans-serif`;
+      const tw = ctx.measureText(lab).width/2;
+      ctx.fillText(lab,-tw,0);
+      ctx.restore();
+    }
+    ctx.rotate(5*D2R);
+  }
+  ctx.restore();
+
+  // Pointer (fixed at top, indicates current bearing)
+  ctx.save(); ctx.translate(R,R);
+  ctx.shadowColor='rgba(2,8,23,.25)'; ctx.shadowBlur=10*dpr; ctx.shadowOffsetY=3*dpr;
+  const g = ctx.createLinearGradient(0,-R*0.78,0,-R*0.5);
+  g.addColorStop(0,'#0ea5e9'); g.addColorStop(1,'#14b8a6');
+  ctx.fillStyle=g; ctx.strokeStyle='rgba(14,165,233,.4)'; ctx.lineWidth=2*dpr;
+  ctx.beginPath();
+  ctx.moveTo(0,-R*0.72);
+  ctx.lineTo(R*0.06,-R*0.55);
+  ctx.lineTo(0,-R*0.59);
+  ctx.lineTo(-R*0.06,-R*0.55);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+/* Smoothed display */
+function compassTick(){
+  // smoothly interpolate displayed heading toward latest reading
+  const target = (STATE.hdg.value != null) ? STATE.hdg.value : 0;
+  const diff = angDiff(STATE.hdg.displayed, target);
+  STATE.hdg.displayed = wrap360(STATE.hdg.displayed + diff*0.18);
+  drawCompass(STATE.hdg.displayed);
+
+  const rounded = Math.round(STATE.hdg.displayed) % 360;
+  document.getElementById('headingText').textContent = rounded + '°';
+  const srcLine = document.getElementById('hdgSrcLine');
+  const fresh = STATE.hdg.value != null && (performance.now()-STATE.hdg.srcAt) < 3000;
+  srcLine.textContent = fresh ? `${STATE.hdg.src} · live` : 'awaiting compass…';
+  srcLine.style.color = fresh ? '#10b981' : '#9ca3af';
+
+  // Error to desired
+  const sp = parseInt(document.getElementById('spInput').value, 10);
+  if (Number.isFinite(sp) && STATE.hdg.value != null){
+    const e = angDiff(STATE.hdg.value, sp);
+    document.getElementById('errVal').textContent = Math.round(e) + '°';
+  } else {
+    document.getElementById('errVal').textContent = '—';
+  }
+
+  // Live map heading display
+  document.getElementById('mHeading').textContent = (STATE.hdg.value != null) ? Math.round(STATE.hdg.value) + '°' : '—';
+}
+setInterval(compassTick, 100);
+
+/* =====================================================================
+   DESIRED HEADING ↔ TARGET TO NAV ESP
+===================================================================== */
+function sendDesiredTarget(){
+  const sp = parseInt(document.getElementById('spInput').value, 10);
+  if (!Number.isFinite(sp)) return;
+  const norm = wrap360(sp);
+  if (STATE.ap.targetSent === norm && (performance.now()-STATE.ap.targetSentAt) < 5000) return;
+  if (STATE.ble.connected){
+    bleWrite('TARGET:' + norm);
+    STATE.ap.targetSent = norm;
+    STATE.ap.targetSentAt = performance.now();
+  }
+}
+function adjSP(delta){
+  const el = document.getElementById('spInput');
+  const cur = parseInt(el.value, 10);
+  const base = Number.isFinite(cur) ? cur : (STATE.hdg.value != null ? Math.round(STATE.hdg.value) : 0);
+  el.value = wrap360(base+delta);
+  sendDesiredTarget();
+}
+document.getElementById('spPlus').onclick  = ()=>adjSP(+1);
+document.getElementById('spMinus').onclick = ()=>adjSP(-1);
+document.getElementById('spInput').addEventListener('change', sendDesiredTarget);
+document.querySelectorAll('.quickHdg').forEach(b => b.onclick = ()=>{
+  document.getElementById('spInput').value = b.dataset.h;
+  sendDesiredTarget();
+});
+
+/* =====================================================================
+   AUTOPILOT ENGAGE PANEL
+===================================================================== */
+function paintEngage(){
+  const btn = document.getElementById('engageBtn');
+  const motion = document.getElementById('apMotion');
+  const link = document.getElementById('apLink');
+  if (!STATE.ble.connected){
+    btn.textContent = 'Connect first';
+    btn.classList.remove('engaged','warn');
+    motion.textContent = '—';
+    link.textContent = '—';
+    return;
+  }
+  const st = STATE.ap.apState;
+  const rs = STATE.ap.apReason;
+  if (st === 'AUTO'){
+    btn.textContent = 'Disengage';
+    btn.classList.add('engaged'); btn.classList.remove('warn');
+  } else if (st === 'STANDBY' && rs === 'JOY'){
+    btn.textContent = 'Joystick override — Re-engage';
+    btn.classList.add('warn'); btn.classList.remove('engaged');
+  } else if (st === 'STANDBY' && rs === 'TIMEOUT'){
+    btn.textContent = 'Link timeout — Re-engage';
+    btn.classList.add('warn'); btn.classList.remove('engaged');
+  } else {
+    btn.textContent = 'Engage';
+    btn.classList.remove('engaged','warn');
+  }
+  motion.textContent = st ? (st + (rs?' ('+rs+')':'')) : '—';
+  if (STATE.ap.apBeatAt){
+    const dt = Math.round((performance.now()-STATE.ap.apBeatAt)/1000);
+    link.textContent = dt + 's ago';
+    link.style.color = dt>3 ? '#ef4444' : '#10b981';
+  } else {
+    link.textContent = '—';
+    link.style.color = '#9ca3af';
+  }
+  const revRow = document.getElementById('apReverseRow');
+  if (revRow) revRow.style.display = (STATE.ap && STATE.ap.reversed) ? 'block' : 'none';
+}
+setInterval(paintEngage, 500);
+
+document.getElementById('engageBtn').onclick = async ()=>{
+  if (!STATE.ble.connected){ bleConnect(); return; }
+
+  // Disengage path is identical regardless of page.
+  if (STATE.ap.apState === 'AUTO'){
+    await bleWrite('MODE:STANDBY');
+    await bleWrite('ERR:0');
+    return;
+  }
+
+  // Engage path: pick a TARGET appropriate to the page we're on.
+  let tgt = null;
+  if (currentPage === 'map'){
+    tgt = computeRouteTarget();
+    if (tgt == null){
+      if (STATE.route.points.length < 2){
+        toast('Draw or load a route first.');
+      } else if (STATE.fix.lat == null){
+        toast('Waiting for GPS fix.');
+      } else {
+        toast('Already at the end of the route.');
+      }
+      return;
+    }
+  } else {
+    // Compass page (or anything else): hold the desired heading.
+    const sp = parseInt(document.getElementById('spInput').value, 10);
+    if (Number.isFinite(sp)){
+      tgt = wrap360(sp);
+    } else if (STATE.hdg.value != null){
+      tgt = Math.round(STATE.hdg.value);
+    }
+    if (tgt == null){
+      toast('Set a desired heading first.');
+      return;
+    }
+  }
+
+  await bleWrite('TARGET:' + tgt);
+  STATE.ap.targetSent   = tgt;
+  STATE.ap.targetSentAt = performance.now();
+  document.getElementById('spInput').value = tgt;
+
+  await bleWrite('MODE:AUTO');
+};
+
+/* =====================================================================
+   CONNECTION UI
+===================================================================== */
+function updateConnUI(){
+  const btn = document.getElementById('connBtn');
+  if (STATE.ble.connected){
+    btn.textContent = 'Disconnect';
+    btn.classList.remove('connect-ready');
+    btn.classList.add('disconnect-ready');
+  } else {
+    btn.textContent = 'Connect';
+    btn.classList.add('connect-ready');
+    btn.classList.remove('disconnect-ready');
+  }
+  paintEngage();
+}
+document.getElementById('connBtn').onclick = ()=>{
+  if (STATE.ble.connected) bleDisconnect(); else bleConnect();
+};
+
+/* =====================================================================
+   SETUP FORM
+===================================================================== */
+function fillSetupForm(){
+  const s = STATE.settings;
+  // Note: PID gains (kp/ki/kd/db) are tuned live on the Tune page; they're
+  // no longer mirrored into Setup. STATE.settings still holds the most
+  // recently-known values (kept in sync from the Nav ESP's PID: notifications).
+  document.getElementById('hdgOffset').value = s.hdgOff;
+  document.getElementById('bnoRollOff').value  = s.bnoRollOff;
+  document.getElementById('bnoPitchOff').value = s.bnoPitchOff;
+  document.getElementById('unitDist').value = s.unitDist;
+  document.getElementById('unitSpeed').value = s.unitSpeed;
+  document.getElementById('advRadius').value = s.advRadius;
+  document.getElementById('trackInterval').value = s.trackInterval;
+}
+document.getElementById('setupSaveBtn').onclick = ()=>{
+  const s = STATE.settings;
+  s.hdgOff = parseFloat(document.getElementById('hdgOffset').value)||0;
+  s.bnoRollOff  = parseFloat(document.getElementById('bnoRollOff').value)||0;
+  s.bnoPitchOff = parseFloat(document.getElementById('bnoPitchOff').value)||0;
+  s.unitDist  = document.getElementById('unitDist').value;
+  s.unitSpeed = document.getElementById('unitSpeed').value;
+  s.advRadius = parseFloat(document.getElementById('advRadius').value)||25;
+  s.trackInterval = parseFloat(document.getElementById('trackInterval').value)||2;
+  saveSettings();
+  toast('Saved');
+  showPage('compass');
+};
+
+/* ---- BNO055 orientation zero buttons -----------------------------------
+   "Zero" captures the current LIVE raw reading and stores it as the offset
+   so that, after subtraction, the displayed value reads 0.
+   Heading wraps 0..360; we normalise the resulting offset to -180..+180.
+------------------------------------------------------------------------ */
+function _bnoZeroRoll(){
+  const live = window.BNOLive ? window.BNOLive() : null;
+  if (!live || live.roll == null){ alert('No BNO055 roll reading yet'); return; }
+  // raw = displayed_we_want_to_zero + current_offset  ⇒ store raw as new offset
+  const raw = live.roll + (STATE.settings.bnoRollOff||0);
+  STATE.settings.bnoRollOff = +raw.toFixed(2);
+  document.getElementById('bnoRollOff').value = STATE.settings.bnoRollOff;
+  saveSettings();
+  toast('Roll zeroed');
+}
+function _bnoZeroPitch(){
+  const live = window.BNOLive ? window.BNOLive() : null;
+  if (!live || live.pitch == null){ alert('No BNO055 pitch reading yet'); return; }
+  const raw = live.pitch + (STATE.settings.bnoPitchOff||0);
+  STATE.settings.bnoPitchOff = +raw.toFixed(2);
+  document.getElementById('bnoPitchOff').value = STATE.settings.bnoPitchOff;
+  saveSettings();
+  toast('Pitch zeroed');
+}
+function _bnoZeroHdg(){
+  // Heading zero re-uses the existing hdgOff (the master Heading offset).
+  const live = window.BNOLive ? window.BNOLive() : null;
+  if (!live || live.hdg == null){ alert('No BNO055 heading reading yet'); return; }
+  // BNOLive returns the already-offset heading: displayed = wrap360(raw + hdgOff)
+  // We can also use live.rawHdg directly.
+  const raw = (live.rawHdg != null) ? live.rawHdg
+            : wrap360(live.hdg - (STATE.settings.hdgOff||0));
+  // Want displayed = wrap360(raw + newOff) = 0  ⇒  newOff = -raw (normalised -180..+180)
+  let newOff = -raw;
+  newOff = ((newOff%360)+540)%360 - 180;   // -180..+180
+  STATE.settings.hdgOff = Math.round(newOff*10)/10;
+  document.getElementById('hdgOffset').value = STATE.settings.hdgOff;
+  saveSettings();
+  toast('Heading zeroed');
+}
+document.getElementById('bnoRollZeroBtn').onclick  = _bnoZeroRoll;
+document.getElementById('bnoPitchZeroBtn').onclick = _bnoZeroPitch;
+document.getElementById('bnoHdgZeroBtn').onclick   = _bnoZeroHdg;
+document.getElementById('bnoResetZeroBtn').onclick = ()=>{
+  STATE.settings.bnoRollOff  = 0;
+  STATE.settings.bnoPitchOff = 0;
+  document.getElementById('bnoRollOff').value  = 0;
+  document.getElementById('bnoPitchOff').value = 0;
+  saveSettings();
+  toast('IMU offsets cleared');
+};
+
+/* Refresh the "Live" readouts on the setup page (only when visible) */
+function _f1(v){ return (v==null||!isFinite(v)) ? '—' : v.toFixed(1)+'°'; }
+setInterval(()=>{
+  const page = document.getElementById('pageSetup');
+  if (!page || page.style.display === 'none') return;
+  const live = window.BNOLive ? window.BNOLive() : null;
+  if (!live){
+    document.getElementById('bnoRollLive').textContent  = '—';
+    document.getElementById('bnoPitchLive').textContent = '—';
+    document.getElementById('bnoHdgLive').textContent   = '—';
+    return;
+  }
+  // Show the *zeroed* (after-offset) values so the user can see them go to 0
+  document.getElementById('bnoRollLive').textContent  = _f1(live.roll);
+  document.getElementById('bnoPitchLive').textContent = _f1(live.pitch);
+  document.getElementById('bnoHdgLive').textContent   = (live.hdg==null) ? '—' : Math.round(live.hdg)+'°';
+}, 250);
+document.getElementById('calNorthBtn').onclick = ()=>{
+  if (STATE.hdg.value == null){ alert('No compass reading yet'); return; }
+  // We applied hdgOff before storing STATE.hdg.value, so derive raw:
+  const raw = wrap360(STATE.hdg.value - (STATE.settings.hdgOff||0));
+  const newOff = wrap360(-raw); if (newOff>180) newOff-=360;
+  STATE.settings.hdgOff = newOff;
+  document.getElementById('hdgOffset').value = newOff;
+  saveSettings();
+  toast('North set');
+};
+
+// Steering direction reverse toggle.
+// Optimistically flips the local state so the UI feels responsive,
+// then waits for the REV: echo from the Nav ESP to confirm.
+document.getElementById('reverseBtn').onclick = async ()=>{
+  if (!STATE.ble.connected){ alert('Connect to NAV_ESP first'); return; }
+  const next = !(STATE.ap && STATE.ap.reversed);
+  STATE.ap.reversed = next;
+  paintReverseBtn();
+  paintEngage();
+  await bleWrite('REVERSE:' + (next ? '1' : '0'));
+  toast(next ? 'Steering reversed' : 'Steering normal');
+};
+
+/* =====================================================================
+   MAP
+===================================================================== */
+let mapInited = false;
+function ensureMap(){ if (!mapInited){ initMap(); mapInited = true; } }
+
+function initMap(){
+  STATE.map = L.map('map', { zoomControl:true, attributionControl:false }).setView([-33.86, 151.20], 13);
+
+  // Base: OpenStreetMap online
+  STATE.baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(STATE.map);
+
+  // Seamarks overlay (off by default)
+  STATE.seamarkLayer = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    maxZoom: 18, opacity: 0.95, attribution:'© OpenSeaMap'
+  });
+
+  // Boat marker
+  const boatIcon = L.divIcon({ className:'', html:'<div class="boat-marker"></div>', iconSize:[30,30], iconAnchor:[15,15] });
+  STATE.boatMarker = L.marker([0,0], { icon:boatIcon, zIndexOffset:1000, interactive:false });
+
+  // Planned route polyline
+  STATE.route.polyline = L.polyline([], { color:getCSS('--route'), weight:5, opacity:.85 }).addTo(STATE.map);
+  // Track polyline (live)
+  STATE.trackLive.polyline = L.polyline([], { color:getCSS('--track'), weight:3, opacity:.9, dashArray:'2 6' }).addTo(STATE.map);
+
+  // Map click — used in draw mode for inserting midpoints (long-press handles the endpoint)
+  STATE.map.on('click', e => {
+    if (!STATE.drawMode) return;
+    if (STATE.route.points.length < 2) return; // nothing to insert into yet
+    insertMidpoint(e.latlng);
+  });
+
+  // Long-press detection (touch + mouse)
+  attachLongPress(STATE.map.getContainer(), (latlng)=>{
+    if (!STATE.drawMode) return;
+    setEndpointFromLongPress(latlng);
+  });
+
+  // Disable map's followBoat the moment user drags
+  STATE.map.on('dragstart', ()=>{ STATE.followBoat = false; });
+}
+
+function attachLongPress(el, cb){
+  let timer = null, start = null;
+  const TH_MS = 450, TH_PX = 12;
+  el.addEventListener('touchstart', ev => {
+    if (ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    start = { x:t.clientX, y:t.clientY };
+    timer = setTimeout(()=>{
+      timer = null;
+      const ll = STATE.map.containerPointToLatLng(STATE.map.mouseEventToContainerPoint(ev));
+      cb(ll);
+    }, TH_MS);
+  }, {passive:true});
+  el.addEventListener('touchmove', ev=>{
+    if (!start || !timer) return;
+    const t = ev.touches[0];
+    if (Math.hypot(t.clientX-start.x, t.clientY-start.y) > TH_PX){
+      clearTimeout(timer); timer=null;
+    }
+  }, {passive:true});
+  el.addEventListener('touchend', ()=>{ if (timer){ clearTimeout(timer); timer=null; } start=null; });
+  el.addEventListener('touchcancel', ()=>{ if (timer){ clearTimeout(timer); timer=null; } start=null; });
+
+  // Right-click as desktop alternative
+  el.addEventListener('contextmenu', ev => {
+    if (!STATE.drawMode) return;
+    ev.preventDefault();
+    const ll = STATE.map.containerPointToLatLng(STATE.map.mouseEventToContainerPoint(ev));
+    cb(ll);
+  });
+}
+
+/* ========== Custom local-tiles layer ========== */
+const LocalTileLayer = L.GridLayer.extend({
+  createTile: function(coords, done){
+    const tile = document.createElement('img');
+    tile.style.width = tile.style.height = this.getTileSize().x + 'px';
+    const key = `${coords.z}/${coords.x}/${coords.y}.png`;
+    const file = STATE.tilesPicked && STATE.tilesPicked.get(key);
+    if (!file){ // also try .jpg/.webp
+      const f2 = STATE.tilesPicked && (STATE.tilesPicked.get(`${coords.z}/${coords.x}/${coords.y}.jpg`)
+                                     || STATE.tilesPicked.get(`${coords.z}/${coords.x}/${coords.y}.webp`));
+      if (f2) {
+        const url = URL.createObjectURL(f2);
+        tile.onload = ()=>{ URL.revokeObjectURL(url); done(null, tile); };
+        tile.onerror = ()=>done('err', tile);
+        tile.src = url; return tile;
+      }
+      tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+      done(null, tile); return tile;
+    }
+    const url = URL.createObjectURL(file);
+    tile.onload = ()=>{ URL.revokeObjectURL(url); done(null, tile); };
+    tile.onerror = ()=>{ URL.revokeObjectURL(url); done('err', tile); };
+    tile.src = url;
+    return tile;
+  }
+});
+
+/* ========== Tiles picker ========== */
+document.getElementById('tilesBtn').onclick = ()=>{
+  document.getElementById('tilesInput').click();
+};
+document.getElementById('tilesInput').addEventListener('change', ev=>{
+  const files = ev.target.files;
+  if (!files || files.length === 0) return;
+  const map = new Map();
+  let minZ = Infinity, maxZ = -Infinity;
+  let folderName = null;
+  for (const f of files){
+    const path = f.webkitRelativePath || f.name;
+    if (folderName==null){ folderName = path.split('/')[0]; }
+    // Look for {z}/{x}/{y}.{png|jpg|webp} pattern at the END of the path
+    const m = path.match(/(?:^|\/)(\d+)\/(\d+)\/(\d+)\.(png|jpe?g|webp)$/i);
+    if (!m) continue;
+    const z = +m[1], x = +m[2], y = +m[3];
+    map.set(`${z}/${x}/${y}.${m[4].toLowerCase()==='jpeg'?'jpg':m[4].toLowerCase()}`, f);
+    if (z<minZ) minZ=z; if (z>maxZ) maxZ=z;
+  }
+  if (map.size === 0){
+    alert('No tile files found. Folder must contain {z}/{x}/{y}.png (or .jpg / .webp).');
+    return;
+  }
+  STATE.tilesPicked = map;
+  STATE.tilesPickedName = folderName || 'tiles';
+  STATE.tilesMinZ = minZ; STATE.tilesMaxZ = maxZ;
+  // Replace base layer with local one
+  if (STATE.baseLayer){ STATE.map.removeLayer(STATE.baseLayer); }
+  STATE.baseLayer = new LocalTileLayer({ minZoom:minZ, maxZoom:maxZ });
+  STATE.baseLayer.addTo(STATE.map);
+  // Clamp zoom into available range
+  if (STATE.map.getZoom() < minZ) STATE.map.setZoom(minZ);
+  if (STATE.map.getZoom() > maxZ) STATE.map.setZoom(maxZ);
+  STATE.map.setMinZoom(minZ); STATE.map.setMaxZoom(maxZ);
+  STATE.settings.lastTilesName = folderName;
+  saveSettings();
+  toast(`Loaded ${map.size} tiles · z${minZ}–${maxZ}`);
+});
+
+document.getElementById('seamarksBtn').onclick = (e)=>{
+  if (STATE.map.hasLayer(STATE.seamarkLayer)){
+    STATE.map.removeLayer(STATE.seamarkLayer);
+    e.currentTarget.classList.remove('active');
+  } else {
+    STATE.seamarkLayer.addTo(STATE.map);
+    e.currentTarget.classList.add('active');
+  }
+};
+
+/* ========== Boat marker on the map ========== */
+function updateBoatMarker(){
+  if (!STATE.map || STATE.fix.lat == null) return;
+  if (!STATE.boatMarker._map) STATE.boatMarker.addTo(STATE.map);
+  STATE.boatMarker.setLatLng([STATE.fix.lat, STATE.fix.lng]);
+  // Rotate the inner element by current heading (use compass HDG, not GPS COG)
+  const el = STATE.boatMarker.getElement();
+  if (el){
+    const inner = el.querySelector('.boat-marker');
+    if (inner){
+      const ang = (STATE.hdg.value != null) ? STATE.hdg.value : (STATE.fix.cog||0);
+      inner.style.transform = `rotate(${ang}deg)`;
+    }
+  }
+}
+
+/* ========== Draw mode ========== */
+const drawBtn = document.getElementById('drawBtn');
+drawBtn.onclick = ()=>{
+  STATE.drawMode = !STATE.drawMode;
+  drawBtn.classList.toggle('active', STATE.drawMode);
+  toast(STATE.drawMode ? 'Draw mode: long-press to set endpoint' : 'Draw mode off');
+};
+
+function setEndpointFromLongPress(latlng){
+  // First point must always be current GPS position. If not present, just refuse.
+  if (STATE.fix.lat == null){ alert('No GPS fix yet — wait for position.'); return; }
+  if (STATE.route.points.length === 0){
+    STATE.route.points.push({ lat:STATE.fix.lat, lng:STATE.fix.lng, role:'start' });
+    STATE.route.points.push({ lat:latlng.lat,    lng:latlng.lng,    role:'end' });
+  } else {
+    // Replace the LAST point (treated as endpoint)
+    STATE.route.points[STATE.route.points.length-1] = { lat:latlng.lat, lng:latlng.lng, role:'end' };
+  }
+  rebuildRouteVisuals();
+}
+
+function insertMidpoint(latlng){
+  // Find the segment of the route closest to the click and insert a waypoint there.
+  const pts = STATE.route.points;
+  if (pts.length < 2) return;
+  let best = { i:-1, dist:Infinity, proj:null };
+  const px = STATE.map.latLngToLayerPoint(latlng);
+  for (let i=0;i<pts.length-1;i++){
+    const a = STATE.map.latLngToLayerPoint([pts[i].lat,pts[i].lng]);
+    const b = STATE.map.latLngToLayerPoint([pts[i+1].lat,pts[i+1].lng]);
+    const proj = closestPtOnSeg(px, a, b);
+    const d = Math.hypot(proj.x-px.x, proj.y-px.y);
+    if (d < best.dist){ best = { i, dist:d, proj }; }
+  }
+  if (best.i < 0 || best.dist > 18) return; // not close enough to the line
+  const ll = STATE.map.layerPointToLatLng([best.proj.x, best.proj.y]);
+  STATE.route.points.splice(best.i+1, 0, { lat:ll.lat, lng:ll.lng, role:'mid' });
+  rebuildRouteVisuals();
+}
+function closestPtOnSeg(p, a, b){
+  const dx = b.x-a.x, dy = b.y-a.y;
+  const len2 = dx*dx + dy*dy;
+  if (len2 < 1) return { x:a.x, y:a.y, t:0 };
+  let t = ((p.x-a.x)*dx + (p.y-a.y)*dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return { x:a.x + dx*t, y:a.y + dy*t, t };
+}
+
+function rebuildRouteVisuals(){
+  // Polyline
+  STATE.route.polyline.setLatLngs(STATE.route.points.map(p=>[p.lat,p.lng]));
+  // Markers — recreate each rebuild for simplicity
+  STATE.route.markers.forEach(m => STATE.map.removeLayer(m));
+  STATE.route.markers = [];
+  STATE.route.points.forEach((p, idx)=>{
+    const isStart = (idx===0);
+    const isEnd   = (idx===STATE.route.points.length-1);
+    const cls = (isEnd && !isStart) ? 'wp-marker-end' : 'wp-marker-mid';
+    const icon = L.divIcon({ className:'', html:`<div class="${cls}"></div>`, iconSize:isEnd?[18,18]:[14,14], iconAnchor:isEnd?[9,9]:[7,7] });
+    const m = L.marker([p.lat,p.lng], { icon, draggable:!isStart });
+    m.on('drag', ev=>{
+      const ll = ev.target.getLatLng();
+      STATE.route.points[idx].lat = ll.lat;
+      STATE.route.points[idx].lng = ll.lng;
+      STATE.route.polyline.setLatLngs(STATE.route.points.map(q=>[q.lat,q.lng]));
+    });
+    m.on('contextmenu', ev=>{
+      // delete midpoint on right-click / long-press (Leaflet emits contextmenu on long-press of marker on touch)
+      if (idx === 0) return;
+      if (idx === STATE.route.points.length-1 && STATE.route.points.length > 2){
+        toast('To remove endpoint, clear or pick a new endpoint.');
+        return;
+      }
+      if (STATE.route.points.length <= 2) return;
+      STATE.route.points.splice(idx, 1);
+      rebuildRouteVisuals();
+    });
+    m.addTo(STATE.map);
+    STATE.route.markers.push(m);
+  });
+  // Update the start to the current boat position whenever we get a new fix
+  STATE.route.startTracksBoat = true;
+}
+
+document.getElementById('clearRouteBtn').onclick = ()=>{
+  STATE.route.points = [];
+  rebuildRouteVisuals();
+  toast('Route cleared');
+};
+
+/* ========== Record track ========== */
+const recordBtn = document.getElementById('recordBtn');
+recordBtn.onclick = ()=>{
+  STATE.trackLive.recording = !STATE.trackLive.recording;
+  recordBtn.classList.toggle('recording', STATE.trackLive.recording);
+  if (STATE.trackLive.recording){
+    if (STATE.fix.lat != null){
+      STATE.trackLive.points = [{lat:STATE.fix.lat,lng:STATE.fix.lng,ts:Date.now()}];
+    } else {
+      STATE.trackLive.points = [];
+    }
+    STATE.trackLive.polyline.setLatLngs([]);
+    toast('Recording…');
+  } else {
+    toast(`Recording stopped — ${STATE.trackLive.points.length} pts`);
+    if (STATE.trackLive.points.length >= 2){
+      modal({
+        title:'Save recorded track?',
+        html:`<input id="trkName" placeholder="Name (e.g. Manly to Watson)" value="Track ${new Date().toLocaleString()}">`,
+        okLabel:'Save', cancelLabel:'Discard',
+        onOk:()=>{
+          const name = document.getElementById('trkName').value.trim() || ('Track '+Date.now());
+          saveRouteFromPoints(name, STATE.trackLive.points.slice(), 'recorded');
+          STATE.trackLive.points = [];
+          STATE.trackLive.polyline.setLatLngs([]);
+        },
+        onCancel:()=>{
+          STATE.trackLive.points = [];
+          STATE.trackLive.polyline.setLatLngs([]);
+        }
+      });
+    }
+  }
+};
+
+/* ========== Save / Load / Export routes ========== */
+function saveRouteFromPoints(name, points, type){
+  const arr = listSavedRoutes();
+  const route = {
+    id: 'r_' + Date.now(),
+    name,
+    type: type || 'planned',
+    createdAt: new Date().toISOString(),
+    points: points.map(p => ({ lat:+p.lat, lng:+p.lng })),
+    distM: routeLength(points),
+  };
+  arr.unshift(route);
+  writeSavedRoutes(arr);
+  toast(`Saved "${name}"`);
+}
+function routeLength(pts){
+  let s = 0;
+  for (let i=1;i<pts.length;i++){
+    s += distMeters(pts[i-1].lat, pts[i-1].lng, pts[i].lat, pts[i].lng);
+  }
+  return s;
+}
+
+document.getElementById('saveRouteBtn').onclick = ()=>{
+  if (STATE.route.points.length < 2){ alert('Draw a route first.'); return; }
+  modal({
+    title:'Save route',
+    html:`<input id="rtName" placeholder="Name" value="Route ${new Date().toLocaleString()}">`,
+    okLabel:'Save',
+    onOk:()=>{
+      const name = document.getElementById('rtName').value.trim() || ('Route '+Date.now());
+      saveRouteFromPoints(name, STATE.route.points.slice(), 'planned');
+    }
+  });
+};
+
+document.getElementById('loadRouteBtn').onclick = ()=>{
+  const arr = listSavedRoutes();
+  if (arr.length === 0){ alert('No saved routes.'); return; }
+  const html = '<ul class="routes">' + arr.map(r =>{
+    const km = (r.distM/1000).toFixed(2);
+    const date = new Date(r.createdAt).toLocaleString();
+    return `<li data-id="${r.id}">
+      <div><b>${escapeHtml(r.name)}</b><div class="meta">${r.points.length} pts · ${km} km · ${date} · ${r.type}</div></div>
+      <button class="del" data-del="${r.id}">Del</button>
+    </li>`;
+  }).join('') + '</ul>';
+  modal({
+    title:'Load route', html, hideOk:true, cancelLabel:'Close',
+    onOk:()=>false
+  });
+  // Attach handlers after modal renders
+  setTimeout(()=>{
+    document.querySelectorAll('#modalBody li[data-id]').forEach(li=>{
+      li.onclick = (e)=>{
+        if (e.target && e.target.dataset && e.target.dataset.del){
+          const id = e.target.dataset.del;
+          const arr2 = listSavedRoutes().filter(r=>r.id!==id);
+          writeSavedRoutes(arr2);
+          li.remove();
+          return;
+        }
+        const id = li.dataset.id;
+        const route = listSavedRoutes().find(r=>r.id===id);
+        if (!route) return;
+        loadRouteIntoMap(route);
+        document.getElementById('modalBack').classList.remove('show');
+      };
+    });
+  }, 30);
+};
+
+function loadRouteIntoMap(route){
+  STATE.route.points = route.points.map((p,i)=>({ lat:p.lat, lng:p.lng, role: i===0?'start':(i===route.points.length-1?'end':'mid') }));
+  rebuildRouteVisuals();
+  if (STATE.route.points.length){
+    const ll = STATE.route.points.map(p=>[p.lat,p.lng]);
+    STATE.map.fitBounds(ll, { padding:[40,40] });
+    STATE.followBoat = false;
+  }
+  toast(`Loaded "${route.name}"`);
+}
+
+document.getElementById('exportBtn').onclick = ()=>{
+  const arr = listSavedRoutes();
+  const data = JSON.stringify({ savedAt:new Date().toISOString(), routes:arr }, null, 2);
+  const blob = new Blob([data], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'boat_routes_' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+};
+
+document.getElementById('centerBoatBtn').onclick = ()=>{
+  STATE.followBoat = true;
+  if (STATE.fix.lat != null) STATE.map.setView([STATE.fix.lat, STATE.fix.lng], STATE.map.getZoom());
+};
+
+document.getElementById('unitsBtn').onclick = ()=>{
+  // cycle metric → nautical
+  STATE.settings.unitDist  = (STATE.settings.unitDist  === 'metric') ? 'nautical' : 'metric';
+  STATE.settings.unitSpeed = (STATE.settings.unitSpeed === 'kmh')    ? 'kts'      : 'kmh';
+  saveSettings();
+  document.getElementById('unitsBtn').textContent = (STATE.settings.unitDist==='metric') ? 'm / km' : 'nm / kt';
+  paintMapStats();
+};
+
+/* ========== Live map stats + auto-follow + auto-target ========== */
+function paintMapStats(){
+  // Speed / heading
+  document.getElementById('mSpeed').textContent  = fmtSpeed(STATE.fix.spd);
+  document.getElementById('mHeading').textContent = (STATE.hdg.value!=null) ? Math.round(STATE.hdg.value) + '°' : '—';
+
+  // GPS source/quality cell — explicit so it's obvious whether the ESP GPS
+  // is sending data, has a fix, or is silent.
+  const gEl = document.getElementById('mGpsSrc');
+  gEl.classList.remove('warn','danger');
+  if (!STATE.ble.connected){
+    gEl.textContent = 'No BLE';
+    gEl.classList.add('danger');
+  } else if (STATE.gpsi && STATE.gpsi.ts){
+    const q = STATE.gpsi.quality;
+    const sats = STATE.gpsi.sats || 0;
+    if (q > 0 && STATE.fix.lat != null){
+      gEl.textContent = `Fix · ${sats} sat`;
+    } else if (sats > 0){
+      gEl.textContent = `Searching · ${sats} sat`;
+      gEl.classList.add('warn');
+    } else {
+      gEl.textContent = 'No fix';
+      gEl.classList.add('warn');
+    }
+  } else {
+    gEl.textContent = 'Waiting…';
+    gEl.classList.add('warn');
+  }
+
+  // Route stats
+  if (STATE.route.points.length >= 2){
+    // Refresh start to current fix if we have one (user expects "from here")
+    if (STATE.fix.lat != null){
+      STATE.route.points[0].lat = STATE.fix.lat;
+      STATE.route.points[0].lng = STATE.fix.lng;
+      STATE.route.polyline.setLatLngs(STATE.route.points.map(q=>[q.lat,q.lng]));
+      // Move start marker silently
+      if (STATE.route.markers[0]) STATE.route.markers[0].setLatLng([STATE.fix.lat,STATE.fix.lng]);
+    }
+    const total = routeLength(STATE.route.points);
+    document.getElementById('mRouteLen').textContent = fmtDist(total);
+    // Remaining = sum from current pos through remaining waypoints
+    let remain = 0;
+    if (STATE.fix.lat != null){
+      // Find first waypoint we haven't reached (within advRadius)
+      let activeIdx = 1;
+      for (; activeIdx<STATE.route.points.length; activeIdx++){
+        const p = STATE.route.points[activeIdx];
+        if (distMeters(STATE.fix.lat,STATE.fix.lng,p.lat,p.lng) > STATE.settings.advRadius) break;
+      }
+      // Sum from current pos -> activeIdx -> end
+      if (activeIdx < STATE.route.points.length){
+        remain += distMeters(STATE.fix.lat,STATE.fix.lng, STATE.route.points[activeIdx].lat, STATE.route.points[activeIdx].lng);
+        for (let i=activeIdx;i<STATE.route.points.length-1;i++){
+          remain += distMeters(STATE.route.points[i].lat,STATE.route.points[i].lng, STATE.route.points[i+1].lat,STATE.route.points[i+1].lng);
+        }
+      }
+      document.getElementById('mWp').textContent = activeIdx + '/' + (STATE.route.points.length-1);
+
+      // XTE: cross-track distance to current leg
+      if (activeIdx > 0 && activeIdx < STATE.route.points.length){
+        const a = STATE.route.points[activeIdx-1], b = STATE.route.points[activeIdx];
+        const xte = crossTrack(STATE.fix.lat, STATE.fix.lng, a.lat,a.lng, b.lat,b.lng);
+        const xteEl = document.getElementById('mXte');
+        xteEl.textContent = fmtDist(Math.abs(xte));
+        xteEl.classList.toggle('warn', Math.abs(xte) > 50);
+        xteEl.classList.toggle('danger', Math.abs(xte) > 200);
+      } else {
+        document.getElementById('mXte').textContent = '—';
+      }
+
+      // Send TARGET when AUTO is engaged: bearing to active waypoint.
+      // Only fires while the user is actually on the Map page — otherwise
+      // the compass page is in charge and gets to keep its heading hold.
+      if (currentPage === 'map'
+          && STATE.ap.apState === 'AUTO'
+          && STATE.ble.connected
+          && activeIdx < STATE.route.points.length){
+        const wp = STATE.route.points[activeIdx];
+        const tgt = Math.round(bearing(STATE.fix.lat,STATE.fix.lng, wp.lat, wp.lng));
+        const now = performance.now();
+        const wantSend = (STATE.ap.targetSent !== tgt) || (now - STATE.ap.targetSentAt > 1500);
+        if (wantSend){
+          bleWrite('TARGET:' + tgt);
+          STATE.ap.targetSent = tgt;
+          STATE.ap.targetSentAt = now;
+          document.getElementById('spInput').value = tgt;
+        }
+      }
+    } else {
+      remain = total;
+      document.getElementById('mXte').textContent = '—';
+      document.getElementById('mWp').textContent = '0/' + (STATE.route.points.length-1);
+    }
+    document.getElementById('mRemain').textContent = fmtDist(remain);
+    // ETA
+    if (STATE.fix.spd != null && STATE.fix.spd > 0.3){
+      document.getElementById('mEta').textContent = fmtEta(remain / STATE.fix.spd);
+    } else {
+      document.getElementById('mEta').textContent = '—';
+    }
+  } else {
+    document.getElementById('mRouteLen').textContent = '—';
+    document.getElementById('mRemain').textContent = '—';
+    document.getElementById('mEta').textContent = '—';
+    document.getElementById('mXte').textContent = '—';
+    document.getElementById('mWp').textContent = '—';
+  }
+}
+setInterval(paintMapStats, 500);
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* =====================================================================
+   BOOT
+===================================================================== */
+function boot(){
+  fillSetupForm();
+  updateConnUI();
+  // (browser GPS fallback intentionally not started — ESP GPS only)
+  // Default page
+  showPage('compass');
+  // Auto-prefill desired heading once compass is alive
+  setTimeout(()=>{
+    const el = document.getElementById('spInput');
+    if ((!el.value || el.value==='') && STATE.hdg.value != null){
+      el.value = Math.round(STATE.hdg.value);
+    }
+  }, 1500);
+}
+window.addEventListener('load', boot);
+</script>
+
+<!-- ===========================================================
+     DIAG PAGE — self-contained, appended after the main script
+     so it can read STATE / wrap handleLine / wrap showPage.
+=========================================================== -->
+<script>
+(function(){
+  // --- inject CSS -----------------------------------------------------
+  const css = document.createElement('style');
+  css.textContent = `
+    #pageDiag{display:none;height:100%;overflow:auto;padding:8px;background:#f8fafc;position:relative;z-index:1}
+    .diag-grid{display:grid;gap:10px}
+    @media(min-width:760px){.diag-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(min-width:1100px){.diag-grid{grid-template-columns:repeat(3,1fr)}}
+    .diag-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px;box-shadow:0 6px 14px rgba(2,8,23,.06)}
+    .diag-card h3{margin:0 0 10px;font-size:13px;color:#0b2545;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+    .diag-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dotted #f1f5f9;font-size:12px}
+    .diag-row:last-child{border-bottom:0}
+    .diag-row .k{color:var(--muted)}
+    .diag-row .v{color:#0b2545;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+    .diag-row .v.ok{color:#10b981}
+    .diag-row .v.warn{color:#b45309}
+    .diag-row .v.bad{color:#dc2626}
+    .pip{display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:6px;vertical-align:1px}
+    .pip.ok{background:#10b981} .pip.warn{background:#f59e0b} .pip.bad{background:#ef4444}
+    .satbar{display:inline-flex;gap:1px;vertical-align:middle;margin-right:6px}
+    .satbar .b{width:3px;height:10px;background:#e5e7eb;border-radius:1px}
+    .satbar .b.on{background:#10b981}
+  `;
+  document.head.appendChild(css);
+
+  // --- inject Diag button into appbar pages cluster -------------------
+  const pages = document.querySelector('.appbar .pages');
+  if (pages){
+    const b = document.createElement('button');
+    b.id = 'navDiagBtn'; b.textContent = 'Diag';
+    pages.appendChild(b);
+    b.onclick = ()=> showDiagPage();
+  }
+
+  // --- inject Diag page DOM ------------------------------------------
+  const main = document.querySelector('main');
+  const sec = document.createElement('section');
+  sec.id = 'pageDiag';
+  sec.innerHTML = `
+    <div class="diag-grid">
+
+      <div class="diag-card">
+        <h3>🛰 GPS</h3>
+        <div class="diag-row"><span class="k">Source</span><span class="v" id="dgGpsSrc">—</span></div>
+        <div class="diag-row"><span class="k">Fix quality</span><span class="v" id="dgFixQ">—</span></div>
+        <div class="diag-row"><span class="k">Sats locked</span><span class="v" id="dgSats">—</span></div>
+        <div class="diag-row"><span class="k">Sats in view</span><span class="v" id="dgSatsView">—</span></div>
+        <div class="diag-row"><span class="k">HDOP</span><span class="v" id="dgHdop">—</span></div>
+        <div class="diag-row"><span class="k">Position est. accuracy</span><span class="v" id="dgAcc">—</span></div>
+        <div class="diag-row"><span class="k">Altitude</span><span class="v" id="dgAlt">—</span></div>
+        <div class="diag-row"><span class="k">Latitude</span><span class="v" id="dgLat">—</span></div>
+        <div class="diag-row"><span class="k">Longitude</span><span class="v" id="dgLon">—</span></div>
+        <div class="diag-row"><span class="k">Speed (GPS)</span><span class="v" id="dgSpd">—</span></div>
+        <div class="diag-row"><span class="k">Course over ground</span><span class="v" id="dgCog">—</span></div>
+        <div class="diag-row"><span class="k">Last fix age</span><span class="v" id="dgGpsAge">—</span></div>
+      </div>
+
+      <div class="diag-card">
+        <h3>🧭 Compass (QMC5883L)</h3>
+        <div class="diag-row"><span class="k">Heading</span><span class="v" id="dgHdg">—</span></div>
+        <div class="diag-row"><span class="k">Source</span><span class="v" id="dgHdgSrc">—</span></div>
+        <div class="diag-row"><span class="k">Raw X</span><span class="v" id="dgMagX">—</span></div>
+        <div class="diag-row"><span class="k">Raw Y</span><span class="v" id="dgMagY">—</span></div>
+        <div class="diag-row"><span class="k">Raw Z</span><span class="v" id="dgMagZ">—</span></div>
+        <div class="diag-row"><span class="k">Field magnitude</span><span class="v" id="dgMagMag">—</span></div>
+        <div class="diag-row"><span class="k">Stability (5 s)</span><span class="v" id="dgMagStab">—</span></div>
+        <div class="diag-row"><span class="k">Verdict</span><span class="v" id="dgMagVerdict">—</span></div>
+        <div class="diag-row"><span class="k">Last update</span><span class="v" id="dgHdgAge">—</span></div>
+      </div>
+
+      <div class="diag-card">
+        <h3>📡 BLE link</h3>
+        <div class="diag-row"><span class="k">State</span><span class="v" id="dgBleState">—</span></div>
+        <div class="diag-row"><span class="k">Messages received</span><span class="v" id="dgBleCnt">—</span></div>
+        <div class="diag-row"><span class="k">Rate</span><span class="v" id="dgBleRate">—</span></div>
+        <div class="diag-row"><span class="k">Last HDG</span><span class="v" id="dgLastHDG">—</span></div>
+        <div class="diag-row"><span class="k">Last GPS</span><span class="v" id="dgLastGPS">—</span></div>
+        <div class="diag-row"><span class="k">Last STATE</span><span class="v" id="dgLastSTATE">—</span></div>
+        <div class="diag-row"><span class="k">Last GPSI</span><span class="v" id="dgLastGPSI">—</span></div>
+        <div class="diag-row"><span class="k">Last MAG</span><span class="v" id="dgLastMAG">—</span></div>
+      </div>
+
+      <div class="diag-card">
+        <h3>⛵ Motion ESP</h3>
+        <div class="diag-row"><span class="k">Autopilot</span><span class="v" id="dgApState">—</span></div>
+        <div class="diag-row"><span class="k">Last reason</span><span class="v" id="dgApReason">—</span></div>
+        <div class="diag-row"><span class="k">Last STATE age</span><span class="v" id="dgStateAge">—</span></div>
+      </div>
+
+      <div class="diag-card">
+        <h3>📤 Last sent TARGET</h3>
+        <div class="diag-row"><span class="k">Target sent</span><span class="v" id="dgTgt">—</span></div>
+        <div class="diag-row"><span class="k">Sent age</span><span class="v" id="dgTgtAge">—</span></div>
+      </div>
+
+      <div class="diag-card">
+        <h3>⚙️ Nav ESP system</h3>
+        <div class="diag-row"><span class="k">Uptime</span><span class="v" id="dgUptime">—</span></div>
+        <div class="diag-row"><span class="k">Free heap</span><span class="v" id="dgFreeHeap">—</span></div>
+        <div class="diag-row"><span class="k">Last SYS age</span><span class="v" id="dgSysAge">—</span></div>
+      </div>
+
+    </div>
+  `;
+  main.appendChild(sec);
+
+  // --- extra STATE buckets -------------------------------------------
+  STATE.gpsi = { quality:0, sats:0, hdop:0, alt:0, ts:0 };
+  STATE.satView = 0;
+  STATE.mag = { x:0, y:0, z:0, ts:0, history:[] };
+  STATE.sys = { uptime:0, freeHeap:0, ts:0 };
+  STATE.diagBle = { msgs:0, rateBucket:0, rate:0, lastWindow:performance.now(),
+                    lastHDG:0, lastGPS:0, lastSTATE:0, lastGPSI:0, lastMAG:0, lastSAT:0, lastSYS:0 };
+
+  // --- wrap showPage to support the new 'diag' value ------------------
+  // The original showPage hides everything but the named page; we just hide
+  // pageDiag whenever the user clicks Compass/Map/Setup (already does that
+  // for unrecognised values). When 'diag' is requested we hide the others.
+  function showDiagPage(){
+    if (typeof window.currentPage !== 'undefined') window.currentPage = 'diag';
+    try { currentPage = 'diag'; } catch(_){}
+    document.getElementById('pageCompass').style.display = 'none';
+    document.getElementById('pageMap').style.display     = 'none';
+    document.getElementById('pageSetup').style.display   = 'none';
+    document.getElementById('pageDiag').style.display    = 'block';
+    document.getElementById('navCompassBtn').classList.remove('active');
+    document.getElementById('navMapBtn').classList.remove('active');
+    document.getElementById('navDiagBtn').classList.add('active');
+    // Engage panel stays visible — useful while debugging.
+    document.getElementById('apPanel').style.display = 'block';
+  }
+  // Wrap the existing nav buttons so they remove .active from ours too.
+  ['navCompassBtn','navMapBtn'].forEach(id=>{
+    const el = document.getElementById(id);
+    const prev = el.onclick;
+    el.onclick = (e)=>{ document.getElementById('navDiagBtn').classList.remove('active');
+                        if (prev) prev.call(el,e); };
+  });
+
+  // --- patch handleLine to capture the new message types --------------
+  const _origHandle = window.handleLine;
+  window.handleLine = function(line){
+    STATE.diagBle.msgs++;
+    STATE.diagBle.rateBucket++;
+
+    if (line.startsWith('HDG:'))   STATE.diagBle.lastHDG   = performance.now();
+    if (line.startsWith('GPS:'))   STATE.diagBle.lastGPS   = performance.now();
+    if (line.startsWith('STATE:')) STATE.diagBle.lastSTATE = performance.now();
+    if (line.startsWith('GPSI:'))  STATE.diagBle.lastGPSI  = performance.now();
+    if (line.startsWith('MAG:'))   STATE.diagBle.lastMAG   = performance.now();
+    if (line.startsWith('SAT:'))   STATE.diagBle.lastSAT   = performance.now();
+    if (line.startsWith('SYS:'))   STATE.diagBle.lastSYS   = performance.now();
+
+    if (line.startsWith('GPSI:')){
+      const p = line.slice(5).split(',');
+      if (p.length >= 4){
+        STATE.gpsi.quality = parseInt(p[0],10)||0;
+        STATE.gpsi.sats    = parseInt(p[1],10)||0;
+        STATE.gpsi.hdop    = parseFloat(p[2])||0;
+        STATE.gpsi.alt     = parseFloat(p[3])||0;
+        STATE.gpsi.ts      = performance.now();
+      }
+      return;
+    }
+    if (line.startsWith('SAT:')){
+      const p = line.slice(4).split(',');
+      if (p.length >= 2){
+        STATE.gpsi.sats = parseInt(p[0],10)||0;
+        STATE.satView   = parseInt(p[1],10)||0;
+      }
+      return;
+    }
+    if (line.startsWith('MAG:')){
+      const p = line.slice(4).split(',');
+      if (p.length >= 3){
+        const x = parseInt(p[0],10), y = parseInt(p[1],10), z = parseInt(p[2],10);
+        STATE.mag.x = x; STATE.mag.y = y; STATE.mag.z = z;
+        STATE.mag.ts = performance.now();
+        const m = Math.sqrt(x*x + y*y + z*z);
+        STATE.mag.history.push({m, ts:STATE.mag.ts});
+        const cutoff = STATE.mag.ts - 5000;
+        while (STATE.mag.history.length && STATE.mag.history[0].ts < cutoff) STATE.mag.history.shift();
+      }
+      return;
+    }
+    if (line.startsWith('SYS:')){
+      const p = line.slice(4).split(',');
+      if (p.length >= 2){
+        STATE.sys.uptime   = parseInt(p[0],10)||0;
+        STATE.sys.freeHeap = parseInt(p[1],10)||0;
+        STATE.sys.ts       = performance.now();
+      }
+      return;
+    }
+    return _origHandle ? _origHandle(line) : undefined;
+  };
+
+  // --- helpers --------------------------------------------------------
+  function ageStr(t){ if (!t) return '—'; const dt=Math.round((performance.now()-t)/1000); return dt+'s'; }
+  function setText(id,t){ const e=document.getElementById(id); if(e) e.textContent=t; }
+  function setCls(id,cls){ const e=document.getElementById(id); if(!e) return; e.classList.remove('ok','warn','bad'); if(cls) e.classList.add(cls); }
+
+  function fmtDeg(v){ return Number.isFinite(v) ? v.toFixed(6) : '—'; }
+  function fmtAlt(v){ return Number.isFinite(v) ? v.toFixed(1)+' m' : '—'; }
+
+  function fixQualityLabel(q){
+    return ({0:'No Fix',1:'GPS',2:'DGPS',3:'PPS',4:'RTK Fixed',5:'RTK Float',6:'Estimated',7:'Manual',8:'Sim'})[q] || ('?'+q);
+  }
+  function fixQualityCls(q){
+    if (q===0) return 'bad';
+    if (q===1||q===2||q===4) return 'ok';
+    if (q===5||q===6) return 'warn';
+    return 'warn';
+  }
+  function hdopVerdict(h){
+    if (!h || h>20) return ['—',''];
+    if (h<1) return ['Excellent','ok'];
+    if (h<2) return ['Good','ok'];
+    if (h<5) return ['Moderate','warn'];
+    if (h<10) return ['Fair','warn'];
+    return ['Poor','bad'];
+  }
+  function hdopAccuracyEst(h){
+    // very rough rule-of-thumb: civilian GPS ≈ 3 m × HDOP at 1σ
+    if (!h) return '—';
+    return '±' + (h*3).toFixed(1) + ' m (1σ)';
+  }
+  function satCls(n){ return n>=6 ? 'ok' : (n>=4 ? 'warn' : 'bad'); }
+  function satBar(n){
+    const total = 12;
+    const on = Math.min(total, Math.max(0, n));
+    let h = '<span class="satbar">';
+    for (let i=0;i<total;i++) h += `<span class="b${i<on?' on':''}"></span>`;
+    h += '</span>';
+    return h;
+  }
+
+  function magVerdict(){
+    const h = STATE.mag.history;
+    if (h.length < 3) return ['—',''];
+    let mag = h[h.length-1].m;
+    let mean = 0; h.forEach(p => mean += p.m); mean /= h.length;
+    let var2 = 0; h.forEach(p => var2 += (p.m-mean)*(p.m-mean)); var2 /= h.length;
+    const stdev = Math.sqrt(var2);
+    // Heuristic verdict bands. Raw counts on QMC5883L's default 2 G range:
+    // Earth's field ≈ 200-1000 LSB depending on sensor calibration.
+    let verdict = 'OK', cls = 'ok';
+    if (mag < 50)            { verdict = 'No reading';            cls = 'bad'; }
+    else if (mag > 3000)     { verdict = 'Heavy interference';    cls = 'bad'; }
+    else if (mag > 1500)     { verdict = 'Some interference';     cls = 'warn'; }
+    else if (stdev > 200)    { verdict = 'Wobbly — moving?';      cls = 'warn'; }
+    else                     { verdict = 'Stable';                cls = 'ok'; }
+    return [verdict, cls, mag, stdev];
+  }
+
+  function fmtUptime(s){
+    if (!s) return '—';
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+    if (h) return h+'h '+m+'m';
+    if (m) return m+'m '+ss+'s';
+    return ss+'s';
+  }
+  function fmtBytes(n){ if(!n) return '—'; if(n>1e6) return (n/1e6).toFixed(1)+' MB'; if(n>1e3) return (n/1e3).toFixed(1)+' KB'; return n+' B'; }
+
+  // --- repaint loop ---------------------------------------------------
+  function paintDiag(){
+    const now = performance.now();
+
+    // BLE rate (per second, sliding 1s)
+    if (now - STATE.diagBle.lastWindow >= 1000){
+      STATE.diagBle.rate = STATE.diagBle.rateBucket;
+      STATE.diagBle.rateBucket = 0;
+      STATE.diagBle.lastWindow = now;
+    }
+
+    // GPS card
+    setText('dgGpsSrc', STATE.fix.src + (STATE.fix.lat!=null ? ' · live' : ''));
+    setText('dgFixQ',  fixQualityLabel(STATE.gpsi.quality));
+    setCls ('dgFixQ',  fixQualityCls(STATE.gpsi.quality));
+    setText('dgSats',  STATE.gpsi.sats ? (satBar(STATE.gpsi.sats) + STATE.gpsi.sats) : '—');
+    document.getElementById('dgSats').innerHTML = STATE.gpsi.sats ? (satBar(STATE.gpsi.sats) + STATE.gpsi.sats) : '—';
+    setCls ('dgSats',  STATE.gpsi.sats ? satCls(STATE.gpsi.sats) : '');
+    setText('dgSatsView', STATE.satView ? STATE.satView : '—');
+    const [hv, hc] = hdopVerdict(STATE.gpsi.hdop);
+    setText('dgHdop', STATE.gpsi.hdop ? `${STATE.gpsi.hdop.toFixed(1)} (${hv})` : '—');
+    setCls ('dgHdop', hc);
+    setText('dgAcc',  hdopAccuracyEst(STATE.gpsi.hdop));
+    setText('dgAlt',  fmtAlt(STATE.gpsi.alt));
+    setText('dgLat',  fmtDeg(STATE.fix.lat));
+    setText('dgLon',  fmtDeg(STATE.fix.lng));
+    setText('dgSpd',  fmtSpeed(STATE.fix.spd));
+    setText('dgCog',  (STATE.fix.cog!=null) ? Math.round(STATE.fix.cog)+'°' : '—');
+    setText('dgGpsAge', STATE.fix.ts ? ageStr(STATE.fix.ts) : '—');
+
+    // Compass card
+    setText('dgHdg', (STATE.hdg.value!=null) ? Math.round(STATE.hdg.value)+'°' : '—');
+    setText('dgHdgSrc', STATE.hdg.src || '—');
+    setText('dgMagX', STATE.mag.ts ? STATE.mag.x : '—');
+    setText('dgMagY', STATE.mag.ts ? STATE.mag.y : '—');
+    setText('dgMagZ', STATE.mag.ts ? STATE.mag.z : '—');
+    const [ver, vcls, mag, stdev] = magVerdict();
+    setText('dgMagMag',  STATE.mag.ts ? Math.round(mag||0).toString() : '—');
+    setText('dgMagStab', STATE.mag.ts ? ('σ '+(stdev||0).toFixed(0)) : '—');
+    setText('dgMagVerdict', ver);
+    setCls ('dgMagVerdict', vcls);
+    setText('dgHdgAge', STATE.hdg.srcAt ? ageStr(STATE.hdg.srcAt) : '—');
+
+    // BLE card
+    setText('dgBleState', STATE.ble.connected ? 'Connected' : 'Disconnected');
+    setCls ('dgBleState', STATE.ble.connected ? 'ok' : 'bad');
+    setText('dgBleCnt', String(STATE.diagBle.msgs));
+    setText('dgBleRate', STATE.diagBle.rate + '/s');
+    setText('dgLastHDG',   ageStr(STATE.diagBle.lastHDG));
+    setText('dgLastGPS',   ageStr(STATE.diagBle.lastGPS));
+    setText('dgLastSTATE', ageStr(STATE.diagBle.lastSTATE));
+    setText('dgLastGPSI',  ageStr(STATE.diagBle.lastGPSI));
+    setText('dgLastMAG',   ageStr(STATE.diagBle.lastMAG));
+
+    // Motion / AP
+    setText('dgApState',  STATE.ap.apState || '—');
+    setCls ('dgApState',  STATE.ap.apState==='AUTO' ? 'ok' : (STATE.ap.apState==='STANDBY' ? 'warn' : ''));
+    setText('dgApReason', STATE.ap.apReason || '—');
+    setText('dgStateAge', STATE.ap.apBeatAt ? ageStr(STATE.ap.apBeatAt) : '—');
+
+    // Target
+    setText('dgTgt',    STATE.ap.targetSent != null ? STATE.ap.targetSent+'°' : '—');
+    setText('dgTgtAge', STATE.ap.targetSentAt ? ageStr(STATE.ap.targetSentAt) : '—');
+
+    // System
+    setText('dgUptime',   STATE.sys.ts ? fmtUptime(STATE.sys.uptime) : '—');
+    setText('dgFreeHeap', STATE.sys.ts ? fmtBytes(STATE.sys.freeHeap) : '—');
+    setText('dgSysAge',   STATE.sys.ts ? ageStr(STATE.sys.ts) : '—');
+  }
+  setInterval(paintDiag, 500);
+
+  // --- also surface a 'Sats' figure on the map stats bar -------------
+  const mapStats = document.querySelector('.map-stats');
+  if (mapStats){
+    const cell = document.createElement('div');
+    cell.innerHTML = '<div class="k">Sats</div><div class="v" id="mSats">—</div>';
+    mapStats.appendChild(cell);
+    setInterval(()=>{
+      const el = document.getElementById('mSats');
+      if (!el) return;
+      if (STATE.gpsi.ts){
+        el.textContent = STATE.gpsi.sats + (STATE.satView ? '/'+STATE.satView : '');
+        el.classList.remove('warn','danger');
+        if (STATE.gpsi.sats < 4)      el.classList.add('danger');
+        else if (STATE.gpsi.sats < 6) el.classList.add('warn');
+      } else {
+        el.textContent = '—';
+      }
+    }, 500);
+  }
+})();
+</script>
+<!-- ============================================================
+     RAW GPS FEED — appended after the diag module so it can
+     reuse the diag-grid layout and the handleLine wrap.
+============================================================ -->
+<script>
+(function(){
+  const MAX_LINES = 14;
+  const buf = [];           // {ts, text}
+  let totalLines = 0;
+  let firstAt = 0;
+
+  // Wrap handleLine again — chains over whatever the diag module
+  // already installed, so STATE/diag still receive everything.
+  const _orig = window.handleLine;
+  window.handleLine = function(line){
+    if (typeof line === 'string' && line.startsWith('RAW:')){
+      const txt = line.slice(4);
+      const now = performance.now();
+      if (!firstAt) firstAt = now;
+      totalLines++;
+      buf.push({ts:now, text:txt});
+      while (buf.length > MAX_LINES) buf.shift();
+    }
+    return _orig ? _orig(line) : undefined;
+  };
+
+  // Inject card under the existing diag-grid. setInterval handles the
+  // case where the diag page hasn't been built yet on first load.
+  function injectCard(){
+    if (document.getElementById('rawGpsCard')) return;
+    const grid = document.querySelector('#pageDiag .diag-grid');
+    if (!grid) return;
+    const card = document.createElement('div');
+    card.id = 'rawGpsCard';
+    card.className = 'diag-card';
+    card.style.gridColumn = '1 / -1';   // span full width
+    card.innerHTML = `
+      <h3>📜 Raw GPS feed</h3>
+      <div class="diag-row"><span class="k">Lines received</span><span class="v" id="rawCount">—</span></div>
+      <div class="diag-row"><span class="k">Rate</span><span class="v" id="rawRate">—</span></div>
+      <div id="rawBox"
+           style="font-family:ui-monospace,Consolas,monospace;font-size:11px;line-height:1.45;
+                  background:#0b1320;color:#86efac;padding:10px;border-radius:8px;
+                  height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;
+                  margin-top:8px;border:1px solid #1e293b">
+        <span style="color:#64748b">Waiting for RAW: notifications from Nav ESP…</span>
+      </div>
+      <div class="diag-row" style="border-bottom:0">
+        <span class="k">Notes</span>
+        <span class="v" style="font-weight:400;color:#475569;text-align:right;font-size:10px;line-height:1.4">
+          Forwarded by Nav ESP at ~2 lines/sec.<br>For full-speed view, plug in USB cable and watch <b>GPS&gt;</b> lines on serial.
+        </span>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+  setInterval(injectCard, 1000);
+  document.addEventListener('DOMContentLoaded', injectCard);
+  injectCard();
+
+  function paint(){
+    const box = document.getElementById('rawBox');
+    if (!box) return;
+    if (buf.length === 0) return;
+    // Build the display: each line prefixed with a small age tag
+    const now = performance.now();
+    const lines = buf.map(b => {
+      const dt = ((now - b.ts)/1000).toFixed(1);
+      return '+' + dt.padStart(5,' ') + 's  ' + b.text;
+    });
+    box.textContent = lines.join('\n');
+    box.scrollTop = box.scrollHeight;
+
+    document.getElementById('rawCount').textContent = totalLines.toString();
+    if (firstAt && totalLines > 1){
+      const elapsed = (now - firstAt)/1000;
+      const rate = totalLines / Math.max(elapsed, 1);
+      document.getElementById('rawRate').textContent = rate.toFixed(1) + ' lines/s';
+    }
+  }
+  setInterval(paint, 500);
+})();
+</script>
+<!-- ============================================================
+     BNO055 FULL DIAGNOSTIC CARD (v2.1)
+     Listens for BNO:, BNOA:, BNOM:, BNOG:, BNOQ: notifications and
+     displays everything the BNO055 reports.
+============================================================ -->
+<script>
+(function(){
+  let bno = {
+    ok:false, hdg:null, pitch:null, roll:null,
+    yawRate:null,
+    cs:0, cg:0, ca:0, cm:0,
+    lax:null, lay:null, laz:null,
+    grx:null, gry:null, grz:null,
+    mx:null,  my:null,  mz:null,  tempC:null,
+    gx:null,  gy:null,  gz:null,
+    qw:null,  qx:null,  qy:null,  qz:null,
+    ts:0
+  };
+
+  /* Expose the LIVE, OFFSET-APPLIED orientation values to the rest of the
+     app (the Setup page reads these to show the user the "after-zero"
+     reading and to capture new offsets when Zero is pressed). */
+  function _wrap360(a){ a = a%360; if (a<0) a+=360; return a; }
+  window.BNOLive = function(){
+    if (!bno.ts) return null;
+    let s = null;
+    try { s = (typeof STATE !== 'undefined' && STATE && STATE.settings) ? STATE.settings : null; } catch(_){}
+    const rollOff  = s ? (s.bnoRollOff  ||0) : 0;
+    const pitchOff = s ? (s.bnoPitchOff ||0) : 0;
+    const hdgOff   = s ? (s.hdgOff      ||0) : 0;
+    return {
+      ok:    bno.ok,
+      ts:    bno.ts,
+      // After-offset values (these are what the user sees, and what should
+      // read 0 after a Zero press).
+      roll:  (bno.roll  == null) ? null : (bno.roll  - rollOff),
+      pitch: (bno.pitch == null) ? null : (bno.pitch - pitchOff),
+      hdg:   (bno.hdg   == null) ? null : _wrap360(bno.hdg + hdgOff),
+      // Raw too, in case anything wants it.
+      rawRoll:  bno.roll,
+      rawPitch: bno.pitch,
+      rawHdg:   bno.hdg,
+      yawRate:  bno.yawRate,
+    };
+  };
+
+  const _orig = window.handleLine;
+  window.handleLine = function(line){
+    if (typeof line === 'string'){
+      if (line.startsWith('BNO:')){
+        const p = line.slice(4).split(',');
+        bno.ts = performance.now();
+        if (p.length === 7){
+          bno.ok = p[0]==='1';
+          bno.hdg = parseFloat(p[1]);
+          bno.pitch = null; bno.roll = null;
+          bno.yawRate = parseFloat(p[2]);
+          bno.cs=+p[3]; bno.cg=+p[4]; bno.ca=+p[5]; bno.cm=+p[6];
+        } else if (p.length >= 9){
+          bno.ok = p[0]==='1';
+          bno.hdg     = parseFloat(p[1]);
+          bno.pitch   = parseFloat(p[2]);
+          bno.roll    = parseFloat(p[3]);
+          bno.yawRate = parseFloat(p[4]);
+          bno.cs=+p[5]; bno.cg=+p[6]; bno.ca=+p[7]; bno.cm=+p[8];
+        }
+      } else if (line.startsWith('BNOA:')){
+        const p = line.slice(5).split(',');
+        if (p.length >= 6){
+          bno.lax=+p[0]; bno.lay=+p[1]; bno.laz=+p[2];
+          bno.grx=+p[3]; bno.gry=+p[4]; bno.grz=+p[5];
+        }
+      } else if (line.startsWith('BNOM:')){
+        const p = line.slice(5).split(',');
+        if (p.length >= 4){
+          bno.mx=+p[0]; bno.my=+p[1]; bno.mz=+p[2];
+          bno.tempC=+p[3];
+        }
+      } else if (line.startsWith('BNOG:')){
+        const p = line.slice(5).split(',');
+        if (p.length >= 3){
+          bno.gx=+p[0]; bno.gy=+p[1]; bno.gz=+p[2];
+        }
+      } else if (line.startsWith('BNOQ:')){
+        const p = line.slice(5).split(',');
+        if (p.length >= 4){
+          bno.qw=+p[0]; bno.qx=+p[1]; bno.qy=+p[2]; bno.qz=+p[3];
+        }
+      }
+    }
+    return _orig ? _orig(line) : undefined;
+  };
+
+  function injectCard(){
+    if (document.getElementById('bnoCard')) return;
+    const grid = document.querySelector('#pageDiag .diag-grid');
+    if (!grid) return;
+    const card = document.createElement('div');
+    card.id = 'bnoCard';
+    card.className = 'diag-card';
+    card.style.gridColumn = '1 / -1';
+    card.innerHTML = `
+      <h3>🎯 BNO055 IMU — Full Telemetry</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Status & Temperature</div>
+          <div class="diag-row"><span class="k">Sensor</span><span class="v" id="bnoOk">—</span></div>
+          <div class="diag-row"><span class="k">Last Update</span><span class="v" id="bnoAge">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Temperature</span><span class="v" id="bnoT">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Orientation (Euler Angles)</div>
+          <div class="diag-row"><span class="k">Heading (Z)</span><span class="v" id="bnoHdg">—</span></div>
+          <div class="diag-row"><span class="k">Pitch (Y)</span><span class="v" id="bnoPitch">—</span></div>
+          <div class="diag-row"><span class="k">Roll (X)</span><span class="v" id="bnoRoll">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Yaw Rate</span><span class="v" id="bnoYaw">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Calibration Status</div>
+          <div class="diag-row"><span class="k">System</span><span class="v" id="bnoCS">—</span></div>
+          <div class="diag-row"><span class="k">Gyroscope</span><span class="v" id="bnoCG">—</span></div>
+          <div class="diag-row"><span class="k">Accelerometer</span><span class="v" id="bnoCA">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Magnetometer</span><span class="v" id="bnoCM">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Gyroscope (rad/s)</div>
+          <div class="diag-row"><span class="k">X (roll rate)</span><span class="v" id="bnoGx">—</span></div>
+          <div class="diag-row"><span class="k">Y (pitch rate)</span><span class="v" id="bnoGy">—</span></div>
+          <div class="diag-row"><span class="k">Z (yaw rate)</span><span class="v" id="bnoGz">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Magnitude |G|</span><span class="v" id="bnoGm">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Linear Acceleration (m/s²)</div>
+          <div class="diag-row"><span class="k">X axis</span><span class="v" id="bnoLAx">—</span></div>
+          <div class="diag-row"><span class="k">Y axis</span><span class="v" id="bnoLAy">—</span></div>
+          <div class="diag-row"><span class="k">Z axis</span><span class="v" id="bnoLAz">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Magnitude |a|</span><span class="v" id="bnoLAm">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Gravity Vector (m/s²)</div>
+          <div class="diag-row"><span class="k">X axis</span><span class="v" id="bnoGRx">—</span></div>
+          <div class="diag-row"><span class="k">Y axis</span><span class="v" id="bnoGRy">—</span></div>
+          <div class="diag-row"><span class="k">Z axis</span><span class="v" id="bnoGRz">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Magnitude |g| (ideal 9.81)</span><span class="v" id="bnoGRm">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Magnetometer (μT)</div>
+          <div class="diag-row"><span class="k">X axis</span><span class="v" id="bnoMx">—</span></div>
+          <div class="diag-row"><span class="k">Y axis</span><span class="v" id="bnoMy">—</span></div>
+          <div class="diag-row"><span class="k">Z axis</span><span class="v" id="bnoMz">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Magnitude |m|</span><span class="v" id="bnoMm">—</span></div>
+        </div>
+
+        <div>
+          <div style="font-weight:700;color:#0b2545;margin-bottom:4px">Quaternion (Orientation)</div>
+          <div class="diag-row"><span class="k">W (scalar)</span><span class="v" id="bnoQw">—</span></div>
+          <div class="diag-row"><span class="k">X (vector)</span><span class="v" id="bnoQx">—</span></div>
+          <div class="diag-row"><span class="k">Y (vector)</span><span class="v" id="bnoQy">—</span></div>
+          <div class="diag-row" style="border-bottom:0"><span class="k">Z (vector)</span><span class="v" id="bnoQz">—</span></div>
+        </div>
+
+      </div>
+    `;
+    // Insert BEFORE the Raw GPS card if it exists; otherwise just append
+    const rawGpsCard = document.getElementById('rawGpsCard');
+    if (rawGpsCard){
+      grid.insertBefore(card, rawGpsCard);
+    } else {
+      grid.appendChild(card);
+    }
+  }
+  setInterval(injectCard, 1000);
+  document.addEventListener('DOMContentLoaded', injectCard);
+  injectCard();
+
+  function calCls(v){ return v >= 3 ? 'ok' : (v >= 2 ? 'warn' : 'bad'); }
+  function calText(v){ return v + '/3 ' + (v>=3?'(full)':v>=2?'(good)':v>=1?'(low)':'(uncal)'); }
+  function f1(v){ return (v==null||!isFinite(v))?'—':v.toFixed(1); }
+  function f2(v){ return (v==null||!isFinite(v))?'—':v.toFixed(2); }
+  function f3(v){ return (v==null||!isFinite(v))?'—':v.toFixed(3); }
+  function f4(v){ return (v==null||!isFinite(v))?'—':v.toFixed(4); }
+  function mag3(x,y,z){ if(x==null||y==null||z==null) return null; return Math.sqrt(x*x+y*y+z*z); }
+  function ageStr(t){ if(!t) return '—'; return Math.round((performance.now()-t)/1000)+'s'; }
+
+  function setV(id, txt, cls){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = txt;
+    el.classList.remove('ok','warn','bad');
+    if (cls) el.classList.add(cls);
+  }
+
+  function paint(){
+    if (!document.getElementById('bnoOk')) return;
+    if (!bno.ts){ setV('bnoOk','—'); return; }
+    setV('bnoOk', bno.ok ? 'OK (fused AHRS)' : 'Not found — QMC fallback', bno.ok?'ok':'bad');
+    setV('bnoAge', ageStr(bno.ts), (performance.now()-bno.ts)<2000?'ok':'warn');
+    setV('bnoT',  bno.tempC!=null ? bno.tempC+' °C' : '—');
+    // Apply user-configurable IMU zero offsets so the diagnostic card shows
+    // the same numbers as the rest of the app.
+    let _rollOff=0, _pitchOff=0, _hdgOff=0;
+    try {
+      if (typeof STATE !== 'undefined' && STATE && STATE.settings){
+        _rollOff  = STATE.settings.bnoRollOff  || 0;
+        _pitchOff = STATE.settings.bnoPitchOff || 0;
+        _hdgOff   = STATE.settings.hdgOff      || 0;
+      }
+    } catch(_){}
+    const _hdg   = (bno.hdg   == null) ? null : _wrap360(bno.hdg + _hdgOff);
+    const _pitch = (bno.pitch == null) ? null : (bno.pitch - _pitchOff);
+    const _roll  = (bno.roll  == null) ? null : (bno.roll  - _rollOff);
+    setV('bnoHdg',   (_hdg!=null) ? f1(_hdg)+'°' : '—');
+    setV('bnoPitch', (_pitch!=null) ? f1(_pitch)+'°' : '—');
+    setV('bnoRoll',  (_roll!=null)  ? f1(_roll)+'°'  : '—');
+    setV('bnoYaw',   f3(bno.yawRate)+' rad/s');
+    setV('bnoCS', calText(bno.cs), calCls(bno.cs));
+    setV('bnoCG', calText(bno.cg), calCls(bno.cg));
+    setV('bnoCA', calText(bno.ca), calCls(bno.ca));
+    setV('bnoCM', calText(bno.cm), calCls(bno.cm));
+    setV('bnoGx', f3(bno.gx)); setV('bnoGy', f3(bno.gy)); setV('bnoGz', f3(bno.gz));
+    setV('bnoGm', f3(mag3(bno.gx,bno.gy,bno.gz)));
+    setV('bnoLAx', f2(bno.lax)); setV('bnoLAy', f2(bno.lay)); setV('bnoLAz', f2(bno.laz));
+    setV('bnoLAm', f2(mag3(bno.lax,bno.lay,bno.laz)));
+    setV('bnoGRx', f2(bno.grx)); setV('bnoGRy', f2(bno.gry)); setV('bnoGRz', f2(bno.grz));
+    const gM = mag3(bno.grx,bno.gry,bno.grz);
+    setV('bnoGRm', f2(gM), gM!=null && Math.abs(gM-9.81)<0.3?'ok':(gM!=null && Math.abs(gM-9.81)<1.0?'warn':''));
+    setV('bnoMx', f2(bno.mx)); setV('bnoMy', f2(bno.my)); setV('bnoMz', f2(bno.mz));
+    setV('bnoMm', f2(mag3(bno.mx,bno.my,bno.mz)));
+    setV('bnoQw', f4(bno.qw)); setV('bnoQx', f4(bno.qx)); setV('bnoQy', f4(bno.qy)); setV('bnoQz', f4(bno.qz));
+  }
+  setInterval(paint, 500);
+})();
+</script>
+
+<!-- ===========================================================
+     TUNE PAGE — live PID tuning dashboard (v3.0)
+     Self-contained module appended after main + diag scripts.
+     Listens to: HDG, TGT, BNO, GPS, AUTOQ, LIVE, PID, PID2, ADV
+     Renders: rolling time-series of heading/target/error,
+              yaw rate, PID output, recent track on a mini map,
+              and live-tunable sliders for KP/KI/KD_RATE/RATE_DEADBAND.
+=========================================================== -->
+<script>
+(function(){
+  // ----- CSS ----------------------------------------------------------
+  const css = document.createElement('style');
+  css.textContent = `
+    #pageTune{display:none;position:absolute;top:52px;left:0;right:0;bottom:0;
+      background:#f8fafc;overflow:auto;padding:8px;z-index:565}
+    .tune-grid{display:grid;gap:10px;grid-template-columns:1fr}
+    @media(min-width:900px){.tune-grid{grid-template-columns:2fr 1fr}}
+    .tune-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+      padding:10px 12px;box-shadow:0 6px 14px rgba(2,8,23,.06)}
+    .tune-card h3{margin:0 0 8px;font-size:12px;color:#0b2545;
+      letter-spacing:.06em;text-transform:uppercase;
+      display:flex;align-items:center;gap:8px;justify-content:space-between}
+    .tune-card h3 .sub{font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0}
+    .plot-wrap{position:relative;width:100%}
+    .plot-wrap canvas{display:block;width:100%;height:100%;border-radius:8px;background:#0b2545}
+    .plot-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#475569;margin-top:4px}
+    .plot-legend .sw{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:2px}
+    .qbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+    .qpill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+      font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+      background:#e2e8f0;color:#475569;border:1px solid #cbd5e1}
+    .qpill.ok{background:#dcfce7;color:#166534;border-color:#86efac}
+    .qpill.warn{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+    .qpill.bad{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+    .qpill .dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+    .tune-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px 12px;margin-top:6px}
+    .tune-stat{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;
+      border-bottom:1px dotted #f1f5f9;padding:3px 0}
+    .tune-stat .v{color:#0b2545;font-weight:700;font-variant-numeric:tabular-nums}
+    .tune-row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
+    .tune-row label{flex:0 0 110px;font-size:12px;color:var(--muted)}
+    .tune-row .nudge{display:inline-flex;align-items:center;border:1px solid #cbd5e1;border-radius:8px;
+      overflow:hidden;background:#fff}
+    .tune-row .nudge button{border:0;background:#f1f5f9;color:#0b2545;font-weight:700;
+      padding:8px 12px;font-size:14px;cursor:pointer}
+    .tune-row .nudge button:active{background:#e2e8f0}
+    .tune-row .nudge input{border:0;background:#fff;text-align:center;width:78px;padding:8px 4px;
+      font-size:14px;font-weight:700;color:#0b2545;font-variant-numeric:tabular-nums}
+    .tune-row .nudge input:focus{outline:0;background:#fffbeb}
+    .tune-row .esp{font-size:11px;color:var(--muted)}
+    .tune-row .esp b{color:#0b2545;font-weight:700;font-variant-numeric:tabular-nums}
+    .tune-row .send{margin-left:auto}
+    .tune-mini-map{height:240px;width:100%;border-radius:8px;overflow:hidden;background:#e2e8f0}
+    .tune-btn-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .tune-tag{font-size:10px;color:var(--muted);padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px}
+    /* feature toggle switches */
+    .feat-row{display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px dotted #f1f5f9}
+    .feat-row:last-child{border-bottom:0}
+    .feat-row .lbl{flex:1;min-width:0}
+    .feat-row .lbl .title{font-size:13px;font-weight:700;color:#0b2545}
+    .feat-row .lbl .desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+    .feat-row .esp-tag{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+      padding:2px 8px;border:1px solid #e2e8f0;border-radius:999px;flex:0 0 auto;background:#f8fafc}
+    .feat-row .esp-tag.on{color:#166534;border-color:#86efac;background:#dcfce7}
+    .feat-row .esp-tag.off{color:#991b1b;border-color:#fca5a5;background:#fee2e2}
+    .switch{position:relative;display:inline-block;width:48px;height:26px;flex:0 0 48px;cursor:pointer}
+    .switch input{opacity:0;width:0;height:0}
+    .switch .slider{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;
+      transition:background .2s ease}
+    .switch .slider::before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;
+      background:#fff;border-radius:50%;transition:transform .2s ease;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .switch input:checked + .slider{background:#10b981}
+    .switch input:checked + .slider::before{transform:translateX(22px)}
+    .switch input:disabled + .slider{opacity:.5;cursor:not-allowed}
+  `;
+  document.head.appendChild(css);
+
+  // ----- Inject Tune nav button --------------------------------------
+  const pages = document.querySelector('.appbar .pages');
+  if (pages){
+    const b = document.createElement('button');
+    b.id = 'navTuneBtn'; b.textContent = 'Tune';
+    // Insert before Diag so order is Compass | Map | Tune | Diag
+    const diagBtn = document.getElementById('navDiagBtn');
+    if (diagBtn) pages.insertBefore(b, diagBtn);
+    else pages.appendChild(b);
+    b.onclick = ()=> showTunePage();
+  }
+
+  // ----- Inject Tune page DOM -----------------------------------------
+  const page = document.createElement('section');
+  page.id = 'pageTune';
+  page.innerHTML = `
+    <div class="qbar">
+      <span class="qpill" id="tqAuto"><span class="dot"></span>Autopilot</span>
+      <span class="qpill" id="tqDsrc"><span class="dot"></span>D source</span>
+      <span class="qpill" id="tqImu"><span class="dot"></span>IMU</span>
+      <span class="qpill" id="tqRate"><span class="dot"></span>Data</span>
+      <span class="qpill" id="tqGps"><span class="dot"></span>GPS</span>
+    </div>
+
+    <div class="tune-grid">
+      <div class="tune-card">
+        <h3>Heading vs Target <span class="sub" id="tunePlotInfo">last 60 s</span></h3>
+        <div class="plot-wrap" style="height:200px"><canvas id="cvHdg"></canvas></div>
+        <div class="plot-legend">
+          <span><span class="sw" style="background:#fbbf24"></span>Target</span>
+          <span><span class="sw" style="background:#22d3ee"></span>Heading</span>
+          <span><span class="sw" style="background:#f87171"></span>Error</span>
+        </div>
+      </div>
+
+      <div class="tune-card">
+        <h3>Recent track <span class="sub">~5 min</span></h3>
+        <div id="tuneMap" class="tune-mini-map"></div>
+        <div class="tune-stats">
+          <div class="tune-stat"><span>SOG</span><span class="v" id="tuSog">—</span></div>
+          <div class="tune-stat"><span>COG</span><span class="v" id="tuCog">—</span></div>
+          <div class="tune-stat"><span>Sats</span><span class="v" id="tuSat">—</span></div>
+        </div>
+      </div>
+
+      <div class="tune-card">
+        <h3>Yaw rate <span class="sub">deg/s — what the D term sees</span></h3>
+        <div class="plot-wrap" style="height:140px"><canvas id="cvYaw"></canvas></div>
+        <div class="plot-legend">
+          <span><span class="sw" style="background:#a78bfa"></span>Yaw rate (heading frame)</span>
+          <span><span class="sw" style="background:#475569;height:1px;margin-bottom:1px"></span>Rate deadband</span>
+        </div>
+      </div>
+
+      <div class="tune-card">
+        <h3>PID output <span class="sub">value sent to Motion ESP, −100…+100</span></h3>
+        <div class="plot-wrap" style="height:140px"><canvas id="cvOut"></canvas></div>
+        <div class="plot-legend">
+          <span><span class="sw" style="background:#10b981"></span>Output</span>
+        </div>
+      </div>
+
+      <div class="tune-card" style="grid-column:1/-1">
+        <h3>BNO055 features <span class="sub">switch each benefit on/off — A/B compare in the field</span></h3>
+        <div class="feat-row">
+          <label class="switch"><input type="checkbox" id="featUrd"><span class="slider"></span></label>
+          <div class="lbl">
+            <div class="title">Yaw-rate D term</div>
+            <div class="desc">Use the BNO055 gyro Z directly for the PID's D term. Big anti-zigzag win.
+              Off → falls back to legacy error-derivative D using KD.</div>
+          </div>
+          <span class="esp-tag" id="featUrdTag">—</span>
+        </div>
+        <div class="feat-row">
+          <label class="switch"><input type="checkbox" id="featUcg"><span class="slider"></span></label>
+          <div class="lbl">
+            <div class="title">Gyro-calibration gate</div>
+            <div class="desc">Require BNO gyro calibration ≥ 1 before yaw-rate D becomes active.
+              Off → trust the gyro from the moment data is fresh, regardless of cal flag.</div>
+          </div>
+          <span class="esp-tag" id="featUcgTag">—</span>
+        </div>
+        <div class="feat-row">
+          <label class="switch"><input type="checkbox" id="featUbh"><span class="slider"></span></label>
+          <div class="lbl">
+            <div class="title">BNO055 heading source</div>
+            <div class="desc">Use the BNO055 fused AHRS heading. Off → fall back to the QMC5883L magnetometer
+              even when the BNO is present. Useful for diagnosing BNO heading glitches.</div>
+          </div>
+          <span class="esp-tag" id="featUbhTag">—</span>
+        </div>
+        <div class="statline" style="margin-top:8px">Changes are saved to the Nav ESP and persist across reboots.</div>
+      </div>
+
+      <div class="tune-card" style="grid-column:1/-1">
+        <h3>Live tuning <span class="sub">type or use +/−, then "Send"</span></h3>
+        <div class="tune-row" data-key="kp">
+          <label>KP</label>
+          <span class="nudge"><button data-step="-0.1">−</button>
+            <input type="number" step="0.1" min="0" max="20" id="tuneKp">
+            <button data-step="0.1">+</button></span>
+          <span class="esp">on ESP: <b id="espKp">—</b></span>
+          <button class="btn primary send" data-send="kp">Send</button>
+        </div>
+        <div class="tune-row" data-key="ki">
+          <label>KI</label>
+          <span class="nudge"><button data-step="-0.01">−</button>
+            <input type="number" step="0.01" min="0" max="1" id="tuneKi">
+            <button data-step="0.01">+</button></span>
+          <span class="esp">on ESP: <b id="espKi">—</b></span>
+          <button class="btn primary send" data-send="ki">Send</button>
+        </div>
+        <div class="tune-row" data-key="kdr">
+          <label>KD_RATE</label>
+          <span class="nudge"><button data-step="-0.2">−</button>
+            <input type="number" step="0.1" min="0" max="50" id="tuneKdr">
+            <button data-step="0.2">+</button></span>
+          <span class="esp">on ESP: <b id="espKdr">—</b></span>
+          <button class="btn primary send" data-send="kdr">Send</button>
+        </div>
+        <div class="tune-row" data-key="rdb">
+          <label>RATE_DB</label>
+          <span class="nudge"><button data-step="-0.1">−</button>
+            <input type="number" step="0.1" min="0" max="5" id="tuneRdb">
+            <button data-step="0.1">+</button></span>
+          <span class="esp">on ESP: <b id="espRdb">—</b></span>
+          <button class="btn primary send" data-send="rdb">Send</button>
+        </div>
+        <div class="tune-row" data-key="db">
+          <label>DEADBAND</label>
+          <span class="nudge"><button data-step="-0.5">−</button>
+            <input type="number" step="0.1" min="0" max="20" id="tuneDb">
+            <button data-step="0.5">+</button></span>
+          <span class="esp">on ESP: <b id="espDb">—</b></span>
+          <button class="btn primary send" data-send="db">Send</button>
+        </div>
+        <div class="tune-btn-row" style="margin-top:10px">
+          <button class="btn ghost" id="tuneSendAllBtn">Send all</button>
+          <button class="btn ghost" id="tuneFlipSignBtn">Flip rate sign</button>
+          <button class="btn ghost" id="tunePauseBtn">Pause plots</button>
+          <button class="btn ghost" id="tuneClearBtn">Clear plots</button>
+          <span class="tune-tag">RATE_SIGN: <b id="espRsign">—</b></span>
+        </div>
+      </div>
+    </div>
+  `;
+  document.querySelector('main').appendChild(page);
+
+  // ----- Show/hide wiring --------------------------------------------
+  function hideAll(){
+    document.getElementById('pageCompass').style.display = 'none';
+    document.getElementById('pageMap').style.display     = 'none';
+    document.getElementById('pageSetup').style.display   = 'none';
+    document.getElementById('pageTune').style.display    = 'none';
+    const d = document.getElementById('pageDiag'); if (d) d.style.display = 'none';
+    document.getElementById('navCompassBtn').classList.remove('active');
+    document.getElementById('navMapBtn').classList.remove('active');
+    const nd = document.getElementById('navDiagBtn'); if (nd) nd.classList.remove('active');
+    document.getElementById('navTuneBtn').classList.remove('active');
+  }
+  function showTunePage(){
+    hideAll();
+    document.getElementById('pageTune').style.display = 'block';
+    document.getElementById('navTuneBtn').classList.add('active');
+    try { currentPage = 'tune'; } catch(_){}
+    if (typeof window.currentPage !== 'undefined') window.currentPage = 'tune';
+    // Engage panel stays visible — you want it when tuning underway.
+    document.getElementById('apPanel').style.display = 'block';
+    // Refresh map sizing on first show
+    setTimeout(initMap, 60);
+    // Pull current ESP values into the editable inputs (only if user hasn't typed)
+    syncInputsFromEsp(false);
+    // Refresh feature toggle switches from whatever FEAT data we already have
+    if (typeof syncFeatUI === 'function') syncFeatUI();
+  }
+
+  // Wrap the global showPage() so ANY call to it (Compass/Map/Setup/etc.)
+  // hides our Tune page and clears our nav button's active state. This is
+  // the robust fix that doesn't depend on chaining individual onclicks.
+  const _origShowPage = window.showPage;
+  window.showPage = function(name){
+    if (name !== 'tune'){
+      document.getElementById('pageTune').style.display = 'none';
+      document.getElementById('navTuneBtn').classList.remove('active');
+    }
+    return _origShowPage ? _origShowPage.apply(this, arguments) : undefined;
+  };
+  // The Diag module installs its own showDiagPage() that doesn't go through
+  // showPage(), so we still need to hook navDiagBtn to hide Tune.
+  const ndBtn = document.getElementById('navDiagBtn');
+  if (ndBtn){
+    const prev = ndBtn.onclick;
+    ndBtn.onclick = (e)=>{
+      document.getElementById('pageTune').style.display = 'none';
+      document.getElementById('navTuneBtn').classList.remove('active');
+      if (prev) prev.call(ndBtn, e);
+    };
+  }
+
+  // ====================================================================
+  // Data buffers — rolling 60-second time series
+  // ====================================================================
+  const WINDOW_MS = 60000;
+  const buf = {
+    hdg:   [],   // {t, v}
+    tgt:   [],
+    err:   [],
+    yaw:   [],
+    out:   [],
+  };
+  let live = {
+    err:null, yaw:null, out:null, rateUsed:0,
+    autoEngaged:null, autoReason:null,
+    bnoOk:null, calGyro:0, calSys:0,
+    gpsSpd:null, gpsCog:null, satsUsed:null,
+    rateDb:0.3, rateSign:-1,
+    lastLiveMs:0, lastHdgMs:0, lastGpsMs:0,
+  };
+  // ESP-side known values
+  const esp = { kp:null, ki:null, kdr:null, rdb:null, db:null, kd:null, rsign:null,
+                urd:null, ucg:null, ubh:null };
+  // Pending edits in inputs (so we don't overwrite while user is typing)
+  const inputs = {
+    kp:  document.getElementById('tuneKp'),
+    ki:  document.getElementById('tuneKi'),
+    kdr: document.getElementById('tuneKdr'),
+    rdb: document.getElementById('tuneRdb'),
+    db:  document.getElementById('tuneDb'),
+  };
+  let userTouched = { kp:false, ki:false, kdr:false, rdb:false, db:false };
+  Object.keys(inputs).forEach(k=>{
+    inputs[k].addEventListener('focus', ()=> userTouched[k] = true);
+  });
+  function syncInputsFromEsp(force){
+    Object.keys(inputs).forEach(k=>{
+      if (esp[k] == null) return;
+      if (!force && userTouched[k]) return;
+      inputs[k].value = esp[k];
+    });
+  }
+
+  // ====================================================================
+  // BLE line handler — chain
+  // ====================================================================
+  const _origHandle = window.handleLine;
+  window.handleLine = function(line){
+    if (typeof line === 'string') routeLine(line);
+    return _origHandle ? _origHandle(line) : undefined;
+  };
+  function routeLine(line){
+    const now = performance.now();
+    if (line.startsWith('HDG:')){
+      const v = parseFloat(line.slice(4));
+      if (!isNaN(v)){ push(buf.hdg, now, v); live.lastHdgMs = now; }
+    } else if (line.startsWith('TGT:')){
+      const v = parseFloat(line.slice(4));
+      if (!isNaN(v)) push(buf.tgt, now, v);
+    } else if (line.startsWith('LIVE:')){
+      // LIVE:<err>,<yawDps>,<pidOut>,<rateUsed>
+      const p = line.slice(5).split(',');
+      if (p.length >= 4){
+        const err = parseFloat(p[0]);
+        const yaw = parseFloat(p[1]);
+        const out = parseInt(p[2],10);
+        const rUsed = p[3]==='1';
+        if (!isNaN(err)){ push(buf.err, now, err); live.err = err; }
+        if (!isNaN(yaw)){ push(buf.yaw, now, yaw); live.yaw = yaw; }
+        if (!isNaN(out)){ push(buf.out, now, out); live.out = out; }
+        live.rateUsed = rUsed ? 1 : 0;
+        live.lastLiveMs = now;
+      }
+    } else if (line.startsWith('AUTOQ:')){
+      const p = line.slice(6).split(',');
+      if (p.length >= 4){
+        live.bnoOk    = p[0]==='1';
+        live.calGyro  = +p[1] || 0;
+        live.calSys   = +p[2] || 0;
+        live.rateUsed = p[3]==='1' ? 1 : 0;
+      }
+    } else if (line.startsWith('PID:')){
+      // PID:<kp>,<ki>,<kd>,<db>
+      const p = line.slice(4).split(',');
+      if (p.length >= 4){
+        esp.kp = parseFloat(p[0]);
+        esp.ki = parseFloat(p[1]);
+        esp.kd = parseFloat(p[2]);
+        esp.db = parseFloat(p[3]);
+        document.getElementById('espKp').textContent = esp.kp.toFixed(2);
+        document.getElementById('espKi').textContent = esp.ki.toFixed(3);
+        document.getElementById('espDb').textContent = esp.db.toFixed(2);
+        syncInputsFromEsp(false);
+      }
+    } else if (line.startsWith('PID2:')){
+      // PID2:<kdr>,<rdb>,<rsign>
+      const p = line.slice(5).split(',');
+      if (p.length >= 3){
+        esp.kdr   = parseFloat(p[0]);
+        esp.rdb   = parseFloat(p[1]);
+        esp.rsign = parseFloat(p[2]);
+        live.rateDb   = esp.rdb;
+        live.rateSign = esp.rsign;
+        document.getElementById('espKdr').textContent = esp.kdr.toFixed(2);
+        document.getElementById('espRdb').textContent = esp.rdb.toFixed(2);
+        document.getElementById('espRsign').textContent = (esp.rsign>=0?'+1':'−1');
+        syncInputsFromEsp(false);
+      }
+    } else if (line.startsWith('FEAT:')){
+      // FEAT:<urd>,<ucg>,<ubh>
+      const p = line.slice(5).split(',');
+      if (p.length >= 3){
+        esp.urd = p[0]==='1';
+        esp.ucg = p[1]==='1';
+        esp.ubh = p[2]==='1';
+        syncFeatUI();
+      }
+    } else if (line.startsWith('GPS:')){
+      const p = line.slice(4).split(',');
+      if (p.length >= 4){
+        const la = parseFloat(p[0]), lo = parseFloat(p[1]);
+        live.gpsSpd = parseFloat(p[2]);
+        live.gpsCog = parseFloat(p[3]);
+        live.lastGpsMs = now;
+        if (!isNaN(la) && !isNaN(lo) && (la!==0 || lo!==0)) appendTrack(la, lo);
+      }
+    } else if (line.startsWith('SAT:')){
+      const p = line.slice(4).split(',');
+      if (p.length >= 1) live.satsUsed = parseInt(p[0],10);
+    } else if (line.startsWith('STATE:')){
+      // Main app already parses STATE into STATE.ap; mirror it here for the
+      // pills (parts are colon-separated, e.g. "STATE:AUTO" or "STATE:STANDBY:OFFLINE").
+      const body = line.slice(6);
+      const parts = body.split(':');
+      live.autoEngaged = (parts[0]||'').toUpperCase() === 'AUTO';
+      live.autoReason  = (parts[1]||'').toUpperCase() || '';
+    }
+  }
+  function push(arr, t, v){
+    arr.push({t,v});
+    const cutoff = t - WINDOW_MS;
+    while(arr.length && arr[0].t < cutoff) arr.shift();
+  }
+
+  // ====================================================================
+  // Mini-map
+  // ====================================================================
+  let miniMap = null, miniTrack = null, miniBoat = null;
+  const trackPts = [];
+  const TRACK_MS = 5*60*1000;
+  function initMap(){
+    if (miniMap){ miniMap.invalidateSize(); return; }
+    if (typeof L === 'undefined') return;
+    // Default view: copy from main map if it has one, else last known fix,
+    // else a wide world view.
+    let initView = [0, 0], initZoom = 2;
+    try {
+      if (STATE.map){
+        const c = STATE.map.getCenter();
+        initView = [c.lat, c.lng]; initZoom = Math.max(13, STATE.map.getZoom());
+      } else if (STATE.fix && STATE.fix.lat != null && STATE.fix.lng != null){
+        initView = [STATE.fix.lat, STATE.fix.lng]; initZoom = 16;
+      }
+    } catch(_){}
+    miniMap = L.map('tuneMap', {
+      zoomControl:true, attributionControl:false,
+      preferCanvas:true,
+    }).setView(initView, initZoom);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {maxZoom:19}).addTo(miniMap);
+    miniTrack = L.polyline([], {color:'#22d3ee', weight:3, opacity:0.9}).addTo(miniMap);
+    const boatIcon = L.divIcon({
+      className:'',
+      html:'<div style="width:14px;height:14px;border-radius:50%;background:#fbbf24;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.4)"></div>',
+      iconSize:[14,14], iconAnchor:[7,7]
+    });
+    miniBoat = L.marker(initView, {icon:boatIcon, interactive:false}).addTo(miniMap);
+  }
+  function appendTrack(lat, lng){
+    const now = performance.now();
+    trackPts.push({t:now, lat, lng});
+    while(trackPts.length && trackPts[0].t < now - TRACK_MS) trackPts.shift();
+    if (miniMap && miniTrack){
+      miniTrack.setLatLngs(trackPts.map(p=>[p.lat,p.lng]));
+      miniBoat.setLatLng([lat,lng]);
+      // First fix: zoom in
+      if (trackPts.length === 1){ miniMap.setView([lat,lng], 16); }
+    }
+  }
+
+  // ====================================================================
+  // Plotting — custom canvas time-series
+  // ====================================================================
+  function setupCanvas(canvas){
+    const dpr = Math.max(1, window.devicePixelRatio||1);
+    const r = canvas.getBoundingClientRect();
+    canvas.width  = Math.max(1, Math.round(r.width  * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return { ctx, w:r.width, h:r.height };
+  }
+  function drawAxes(ctx, w, h, yMin, yMax, yTicks, yFmt){
+    ctx.fillStyle = '#0b2545';
+    ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle = 'rgba(255,255,255,.08)';
+    ctx.lineWidth = 1;
+    ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(226,232,240,.55)';
+    ctx.textBaseline = 'middle';
+    for(let i=0;i<=yTicks;i++){
+      const y = h - (i/yTicks)*h;
+      ctx.beginPath(); ctx.moveTo(28, y); ctx.lineTo(w, y); ctx.stroke();
+      const v = yMin + (yMax-yMin) * (i/yTicks);
+      ctx.fillText(yFmt(v), 2, y);
+    }
+  }
+  function drawSeries(ctx, data, tNow, color, yMin, yMax, w, h, leftPad, opts){
+    if (data.length === 0) return;
+    opts = opts || {};
+    ctx.strokeStyle = color;
+    ctx.lineWidth = opts.lineWidth || 1.6;
+    ctx.beginPath();
+    let started = false, prevX=0, prevY=0, prevV=null;
+    for (let i=0;i<data.length;i++){
+      const d = data[i];
+      const x = leftPad + ( (d.t - (tNow - WINDOW_MS)) / WINDOW_MS ) * (w - leftPad);
+      const y = h - ((d.v - yMin) / (yMax - yMin)) * h;
+      if (!started){ ctx.moveTo(x,y); started = true; }
+      else {
+        // wrap detection for heading: don't draw a vertical jump
+        if (opts.wrap && prevV != null && Math.abs(d.v - prevV) > 180){
+          ctx.moveTo(x,y);
+        } else {
+          ctx.lineTo(x,y);
+        }
+      }
+      prevX = x; prevY = y; prevV = d.v;
+    }
+    ctx.stroke();
+  }
+  function drawZeroLine(ctx, w, h, yMin, yMax, leftPad){
+    if (0 < yMin || 0 > yMax) return;
+    const y = h - ((0 - yMin) / (yMax - yMin)) * h;
+    ctx.strokeStyle = 'rgba(255,255,255,.25)';
+    ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(leftPad, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function drawHLine(ctx, w, h, yMin, yMax, leftPad, yVal, color){
+    if (yVal < yMin || yVal > yMax) return;
+    const y = h - ((yVal - yMin) / (yMax - yMin)) * h;
+    ctx.strokeStyle = color;
+    ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(leftPad, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function niceRange(vals, minSpan, padFrac){
+    if (vals.length === 0) return [-minSpan/2, minSpan/2];
+    let lo = vals[0], hi = vals[0];
+    for (let i=1;i<vals.length;i++){ if (vals[i]<lo) lo=vals[i]; if (vals[i]>hi) hi=vals[i]; }
+    if (hi - lo < minSpan){ const c = (hi+lo)/2; lo = c - minSpan/2; hi = c + minSpan/2; }
+    const pad = (hi - lo) * padFrac;
+    return [lo - pad, hi + pad];
+  }
+
+  let paused = false;
+  function paint(){
+    if (document.getElementById('pageTune').style.display === 'none') return;
+    if (paused) return;
+    const tNow = performance.now();
+
+    // Heading & target plot: 0–360, but auto-zoom around target ±90 for resolution
+    {
+      const c = document.getElementById('cvHdg');
+      const {ctx, w, h} = setupCanvas(c);
+      let yMin = 0, yMax = 360;
+      // Auto-zoom: if we have a target, show ±60 around it (wrap-aware)
+      const lastTgt = buf.tgt.length ? buf.tgt[buf.tgt.length-1].v : null;
+      const lastHdg = buf.hdg.length ? buf.hdg[buf.hdg.length-1].v : null;
+      if (lastTgt != null){ yMin = lastTgt - 60; yMax = lastTgt + 60; }
+      const leftPad = 28;
+      drawAxes(ctx, w, h, yMin, yMax, 4, v=>{
+        // wrap label into 0..360 for readability
+        let a = ((v % 360)+360) % 360;
+        return Math.round(a)+'°';
+      });
+      // Unwrap heading to follow target if zoomed in
+      function unwrap(arr){
+        if (!lastTgt) return arr;
+        return arr.map(d=>{
+          let v = d.v;
+          while (v - lastTgt > 180) v -= 360;
+          while (v - lastTgt < -180) v += 360;
+          return {t:d.t, v};
+        });
+      }
+      const hdgU = unwrap(buf.hdg);
+      const tgtU = unwrap(buf.tgt);
+      drawSeries(ctx, tgtU, tNow, '#fbbf24', yMin, yMax, w, h, leftPad, {lineWidth:1.4});
+      drawSeries(ctx, hdgU, tNow, '#22d3ee', yMin, yMax, w, h, leftPad, {wrap:true});
+      // Error series scaled to fit: ±60 in this window
+      drawSeries(ctx, buf.err.map(d=>({t:d.t,v:(lastTgt||0)+d.v})), tNow,
+                 'rgba(248,113,113,.75)', yMin, yMax, w, h, leftPad);
+      document.getElementById('tunePlotInfo').textContent =
+        'last 60 s · hdg ' + (lastHdg!=null? Math.round(((lastHdg%360)+360)%360)+'°':'—') +
+        '  tgt ' + (lastTgt!=null? Math.round(((lastTgt%360)+360)%360)+'°':'—') +
+        '  err ' + (live.err!=null? (live.err>=0?'+':'')+live.err.toFixed(1)+'°':'—');
+    }
+    // Yaw rate plot
+    {
+      const c = document.getElementById('cvYaw');
+      const {ctx, w, h} = setupCanvas(c);
+      const vals = buf.yaw.map(d=>d.v);
+      const [yMin, yMax] = niceRange(vals, 4, 0.1);
+      const leftPad = 28;
+      drawAxes(ctx, w, h, yMin, yMax, 4, v=>v.toFixed(1));
+      drawZeroLine(ctx, w, h, yMin, yMax, leftPad);
+      drawHLine(ctx, w, h, yMin, yMax, leftPad,  live.rateDb, 'rgba(148,163,184,.4)');
+      drawHLine(ctx, w, h, yMin, yMax, leftPad, -live.rateDb, 'rgba(148,163,184,.4)');
+      drawSeries(ctx, buf.yaw, tNow, '#a78bfa', yMin, yMax, w, h, leftPad);
+    }
+    // PID output plot
+    {
+      const c = document.getElementById('cvOut');
+      const {ctx, w, h} = setupCanvas(c);
+      const yMin = -100, yMax = 100;
+      const leftPad = 28;
+      drawAxes(ctx, w, h, yMin, yMax, 4, v=>v.toFixed(0));
+      drawZeroLine(ctx, w, h, yMin, yMax, leftPad);
+      drawSeries(ctx, buf.out, tNow, '#10b981', yMin, yMax, w, h, leftPad, {lineWidth:1.8});
+    }
+    // Quality pills
+    paintPills();
+    // Stats
+    document.getElementById('tuSog').textContent = (live.gpsSpd!=null) ? (live.gpsSpd*1.94384).toFixed(1)+' kt' : '—';
+    document.getElementById('tuCog').textContent = (live.gpsCog!=null) ? Math.round(live.gpsCog)+'°' : '—';
+    document.getElementById('tuSat').textContent = (live.satsUsed!=null) ? live.satsUsed : '—';
+  }
+  function paintPills(){
+    const tNow = performance.now();
+    const setPill = (id, label, cls)=>{
+      const el = document.getElementById(id); if (!el) return;
+      el.innerHTML = '<span class="dot"></span>' + label;
+      el.classList.remove('ok','warn','bad'); if (cls) el.classList.add(cls);
+    };
+    // Autopilot
+    if (live.autoEngaged === true)       setPill('tqAuto','AUTO engaged','ok');
+    else if (live.autoEngaged === false) setPill('tqAuto','Standby','warn');
+    else                                  setPill('tqAuto','Autopilot —','');
+    // D source
+    const liveFresh = (tNow - live.lastLiveMs) < 1500;
+    if (!liveFresh)              setPill('tqDsrc','D: no data','bad');
+    else if (live.rateUsed)      setPill('tqDsrc','D on yaw rate','ok');
+    else if (esp.urd === false)  setPill('tqDsrc','D on error (toggle off)','warn');
+    else                          setPill('tqDsrc','D on error (fallback)','warn');
+    // IMU
+    if (live.bnoOk === true){
+      const c = `gyro cal ${live.calGyro}/3 · sys ${live.calSys}/3`;
+      const cls = (live.calGyro>=1) ? 'ok' : 'warn';
+      setPill('tqImu','BNO055 OK · '+c, cls);
+    } else if (live.bnoOk === false) setPill('tqImu','BNO055 not found','bad');
+    else                              setPill('tqImu','BNO055 —','');
+    // Data rate
+    if (live.lastHdgMs === 0) setPill('tqRate','No telemetry','bad');
+    else if ((tNow-live.lastHdgMs) < 1500) setPill('tqRate','Telemetry live','ok');
+    else setPill('tqRate','Telemetry stale','warn');
+    // GPS
+    if (live.lastGpsMs === 0) setPill('tqGps','No GPS','warn');
+    else if ((tNow-live.lastGpsMs) < 3000) setPill('tqGps','GPS '+ (live.satsUsed||'?')+' sats','ok');
+    else setPill('tqGps','GPS stale','warn');
+  }
+  setInterval(paint, 100);   // 10 Hz
+  // Repaint pills when AUTOQ arrives even if plots are paused
+  setInterval(()=>{ if (document.getElementById('pageTune').style.display!=='none') paintPills(); }, 500);
+
+  // ====================================================================
+  // Live tuning controls
+  // ====================================================================
+  document.querySelectorAll('#pageTune .nudge button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = btn.closest('.tune-row');
+      const input = row.querySelector('input[type=number]');
+      const step = parseFloat(btn.dataset.step)||0;
+      const cur = parseFloat(input.value)||0;
+      const next = Math.max(parseFloat(input.min||'-1e9'),
+                            Math.min(parseFloat(input.max||'1e9'), cur + step));
+      const dec = Math.max(0, Math.min(4, (step.toString().split('.')[1]||'').length));
+      input.value = next.toFixed(dec);
+      userTouched[row.dataset.key] = true;
+    });
+  });
+  async function sendKey(k){
+    const v = parseFloat(inputs[k].value);
+    if (isNaN(v)) return;
+    if (!STATE.ble.connected){ toast('Connect to NAV_ESP first'); return; }
+    let line;
+    switch(k){
+      case 'kp':  line = 'KP:'+v;       break;
+      case 'ki':  line = 'KI:'+v;       break;
+      case 'kdr': line = 'KDR:'+v;      break;
+      case 'rdb': line = 'RDB:'+v;      break;
+      case 'db':  line = 'DEADBAND:'+v; break;
+      default: return;
+    }
+    await bleWrite(line);
+    toast(k.toUpperCase()+' sent: '+v);
+    userTouched[k] = false;   // accept incoming echo as authoritative
+  }
+  document.querySelectorAll('#pageTune button[data-send]').forEach(btn=>{
+    btn.addEventListener('click', ()=> sendKey(btn.dataset.send));
+  });
+  document.getElementById('tuneSendAllBtn').addEventListener('click', async ()=>{
+    if (!STATE.ble.connected){ toast('Connect to NAV_ESP first'); return; }
+    for (const k of ['kp','ki','kdr','rdb','db']){
+      if (inputs[k].value !== '' && !isNaN(parseFloat(inputs[k].value))){
+        await sendKey(k);
+        await new Promise(r=>setTimeout(r,80));
+      }
+    }
+  });
+  document.getElementById('tuneFlipSignBtn').addEventListener('click', async ()=>{
+    if (!STATE.ble.connected){ toast('Connect to NAV_ESP first'); return; }
+    const next = (esp.rsign != null && esp.rsign >= 0) ? -1 : 1;
+    await bleWrite('RSIGN:'+next);
+    toast('Rate sign sent: '+(next>=0?'+1':'−1'));
+  });
+  document.getElementById('tunePauseBtn').addEventListener('click', (e)=>{
+    paused = !paused;
+    e.target.textContent = paused ? 'Resume plots' : 'Pause plots';
+  });
+  document.getElementById('tuneClearBtn').addEventListener('click', ()=>{
+    buf.hdg.length=0; buf.tgt.length=0; buf.err.length=0;
+    buf.yaw.length=0; buf.out.length=0;
+  });
+
+  // ----- BNO Feature toggles -----------------------------------------
+  // Each switch reflects the ESP-side flag (via incoming FEAT: messages)
+  // and sends the matching URD/UCG/UBH command on user toggle.
+  const featInputs = {
+    urd: document.getElementById('featUrd'),
+    ucg: document.getElementById('featUcg'),
+    ubh: document.getElementById('featUbh'),
+  };
+  const featTags = {
+    urd: document.getElementById('featUrdTag'),
+    ucg: document.getElementById('featUcgTag'),
+    ubh: document.getElementById('featUbhTag'),
+  };
+  const featCmd = { urd:'URD', ucg:'UCG', ubh:'UBH' };
+  function syncFeatUI(){
+    Object.keys(featInputs).forEach(k=>{
+      const cur = esp[k];
+      const cb = featInputs[k]; const tag = featTags[k];
+      if (cur == null){
+        cb.checked = false; cb.disabled = true;
+        tag.textContent = '—'; tag.classList.remove('on','off');
+      } else {
+        cb.disabled = !STATE.ble.connected;
+        cb.checked  = !!cur;
+        tag.textContent = cur ? 'ENABLED' : 'DISABLED';
+        tag.classList.toggle('on',  !!cur);
+        tag.classList.toggle('off', !cur);
+      }
+    });
+  }
+  Object.keys(featInputs).forEach(k=>{
+    featInputs[k].addEventListener('change', async (e)=>{
+      if (!STATE.ble.connected){
+        e.target.checked = !!esp[k];
+        toast('Connect to NAV_ESP first');
+        return;
+      }
+      const wanted = e.target.checked ? 1 : 0;
+      await bleWrite(featCmd[k] + ':' + wanted);
+      // Don't optimistically mutate esp[k] — wait for the FEAT echo so the
+      // UI shows the ESP's real state.
+      toast(featCmd[k] + (wanted?' on':' off'));
+    });
+  });
+
+  // Re-enable/disable the switches when BLE connection state changes. We
+  // don't get a direct callback, so just poll periodically.
+  setInterval(()=>{
+    if (document.getElementById('pageTune').style.display === 'none') return;
+    Object.keys(featInputs).forEach(k=>{
+      featInputs[k].disabled = !STATE.ble.connected || esp[k]==null;
+    });
+  }, 700);
+
+  // Expose for other modules (none yet, but useful for debugging)
+  window.TuneModule = { buf, live, esp, show: showTunePage };
+})();
+</script>
+</body>
+</html>
+

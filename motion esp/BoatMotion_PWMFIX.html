@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boat Motion Tuning Panel v3</title>
+  <style>
+    :root{--bg:#0b1320;--card:#111b2e;--card2:#16233b;--text:#eaf2ff;--muted:#9db0cf;--accent:#4da3ff;--ok:#2ecc71;--warn:#f39c12;--danger:#ff5b5b;--border:#294264}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#08101c,#0d1626 50%,#101b2e);color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:20px}
+    h1{margin:0 0 8px;font-size:28px}
+    .sub{color:var(--muted);margin-bottom:18px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.22)}
+    .card h2{margin:0 0 12px;font-size:20px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .row>*{flex:1 1 auto}
+    button{border:0;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:700;color:white;background:var(--accent);cursor:pointer;min-height:46px}
+    button.secondary{background:#39557d}
+    button.ok{background:var(--ok);color:#07250f}
+    button.warn{background:var(--warn);color:#2a1700}
+    button.danger{background:var(--danger)}
+    input[type="number"]{width:100%;border:1px solid var(--border);background:var(--card2);color:var(--text);border-radius:12px;padding:12px;font-size:15px;min-height:46px}
+    .label{color:var(--muted);font-size:13px;margin:10px 0 6px}
+    .status{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .pill{padding:8px 12px;border-radius:999px;background:#223551;color:#d8e8ff;border:1px solid var(--border);font-size:13px;font-weight:700}
+    .stat-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:10px}
+    .stat{background:#16233b;border:1px solid var(--border);border-radius:14px;padding:12px}
+    .stat .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .stat .v{font-size:20px;font-weight:700}
+    .log{width:100%;min-height:280px;resize:vertical;border-radius:12px;border:1px solid var(--border);background:#08101c;color:#d8f0d6;padding:12px;font-family:Consolas,monospace;font-size:13px;line-height:1.4}
+    .small{color:var(--muted);font-size:12px;line-height:1.45}
+    .footer{margin-top:14px;color:var(--muted);font-size:12px}
+
+    .mini-tuning{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+    .mini-tuning h3{margin:0 0 10px;font-size:16px}
+    .mini-tuning .label{font-size:12px;margin:8px 0 4px}
+    .mini-tuning .row{margin-bottom:8px}
+    .mini-tuning input[type="number"]{padding:10px;font-size:14px;min-height:40px}
+    .mini-tuning button{padding:10px 12px;font-size:14px;min-height:40px}
+
+
+.mini-tuning{margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.mini-tuning h3{margin:0 0 6px;font-size:14px}
+.mini-tuning .label{font-size:11px;margin:4px 0 2px}
+.mini-tuning input[type="number"]{padding:6px;font-size:12px;min-height:28px}
+.mini-tuning button{padding:6px 8px;font-size:12px;min-height:28px}
+.mini-tuning .row{margin-bottom:4px}
+
+
+    .inline-cal{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+    .inline-cal h3{margin:0 0 10px;font-size:18px}
+    .inline-cal .small{font-size:14px;margin:4px 0}
+
+
+    .cal-3row{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:10px;align-items:center;margin-bottom:12px}
+    .cal-3row button{width:100%}
+    .cal-small{min-height:46px}
+    .cal-center{min-height:46px}
+
+
+    .response-graph-wrap{border:1px solid var(--border);border-radius:14px;padding:10px;background:#101a2d;margin-bottom:12px}
+    #responseCanvas{width:100%;height:auto;display:block}
+    .response-slider-row{align-items:center}
+    .response-slider-row input[type="range"]{flex:1 1 auto}
+    .response-value{min-width:48px;text-align:center;padding:10px;border:1px solid var(--border);background:var(--card2);border-radius:12px;font-weight:700}
+    .response-mode-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .response-mode.active-mode{outline:2px solid var(--accent);box-shadow:0 0 0 2px rgba(77,163,255,.12) inset}
+
+
+    .response-graph-wrap{padding:6px}
+    #responseCanvas{max-height:120px}
+
+    .card h2{font-size:16px;margin-bottom:8px}
+
+    .inline-cal, .cal-3row{gap:6px}
+    .cal-3row button{min-height:36px;font-size:13px}
+
+    .row button{min-height:34px;font-size:13px;padding:6px 8px}
+
+    .card{padding:12px}
+
+    /* ===== Trim (rotary encoder) section ===== */
+    .trim-section{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+    .trim-section h3{margin:0 0 6px;font-size:14px}
+    .trim-section .small{margin-bottom:6px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Boat Motion Tuning Panel v3</h1>
+    <div class="sub">USB serial tuning and calibration panel for the Beetle ESP32-C6 motion controller.</div>
+
+    <div class="status">
+      <div class="pill" id="connState">Disconnected</div>
+      <div class="pill" id="lastCmd">Last command: none</div>
+      <div class="pill" id="streamState">Streaming: off</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Connection</h2>
+        <div class="row">
+          <button id="connectBtn" class="ok">Connect USB</button>
+          <button id="disconnectBtn" class="secondary">Disconnect</button>
+        </div>
+        <div class="small">Use a Chromium-based browser on the PC connected to the Beetle by USB.</div>
+
+<div class="mini-tuning">
+        <h3>Tuning</h3>
+        <div class="label">KP</div>
+        <div class="row"><input id="kpInput" type="number" step="0.01" value="0.22" /><button id="kpBtn">Send KP</button></div>
+
+        <div class="label">KD</div>
+        <div class="row"><input id="kdInput" type="number" step="0.01" value="0.5" /><button id="kdBtn">Send KD</button></div>
+
+        <div class="label">Deadband</div>
+        <div class="row"><input id="deadbandInput" type="number" step="1" value="8" /><button id="deadbandBtn">Send Deadband</button></div>
+        <div class="label">Max PWM</div>
+        <div class="row"><input id="maxpwmInput" type="number" step="1" value="180" /><button id="maxpwmBtn">Send Max PWM</button></div>
+        <div class="label">Min PWM</div>
+        <div class="row"><input id="minpwmInput" type="number" step="1" value="45" /><button id="minpwmBtn">Send Min PWM</button></div>
+        <div class="label">Rate</div>
+        <div class="row"><input id="rateInput" type="number" step="0.1" value="4.0" /><button id="rateBtn">Send Rate</button></div>
+
+        <div class="trim-section">
+          <h3>Rotary Trim</h3>
+          <div class="small">Counts of pot offset per encoder click. Fine = plain knob turn. Coarse = press &amp; hold knob while turning.</div>
+
+          <div class="label">Fine adjust (per click)</div>
+          <div class="row">
+            <input id="nudgeFineInput" type="number" step="1" min="1" value="10" />
+            <button id="nudgeFineBtn">Send Fine</button>
+          </div>
+
+          <div class="label">Coarse adjust (button held)</div>
+          <div class="row">
+            <input id="nudgeCoarseInput" type="number" step="1" min="1" value="50" />
+            <button id="nudgeCoarseBtn">Send Coarse</button>
+          </div>
+        </div>
+      </div>
+
+
+
+      </div>
+
+      <div class="card">
+        <h2>Live Values</h2>
+        <div class="stat-grid">
+          <div class="stat"><div class="k">Pot Raw</div><div class="v" id="potRaw">--</div></div>
+          <div class="stat"><div class="k">Pot Relative</div><div class="v" id="potRel">--</div></div>
+          <div class="stat"><div class="k">Center Raw</div><div class="v" id="centerRaw">--</div></div>
+          <div class="stat"><div class="k">Joystick Raw</div><div class="v" id="joyRaw">--</div></div>
+          <div class="stat"><div class="k">Joystick Rate</div><div class="v" id="joyRate">--</div></div>
+          <div class="stat"><div class="k">Joystick Position %</div><div class="v" id="joyPct">0</div></div>
+          <div class="stat" style="grid-column:1/-1">
+            <div class="k">Joystick Visual (-100 to 100)</div>
+            <div style="position:relative;height:48px;display:flex;align-items:center;">
+              <div style="position:absolute;left:0;right:0;height:8px;background:#0f1b30;border:1px solid var(--border);border-radius:999px;"></div>
+              <div style="position:absolute;left:50%;top:6px;bottom:6px;width:2px;background:var(--muted);opacity:.7;"></div>
+              <div id="joyMarker" style="position:absolute;left:50%;width:18px;height:18px;border-radius:50%;background:var(--accent);transform:translateX(-50%);box-shadow:0 0 0 3px rgba(77,163,255,.18);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px;">
+              <span>-100</span><span>0</span><span>100</span>
+            </div>
+          </div>
+          <div class="stat"><div class="k">Target</div><div class="v" id="targetRel">--</div></div>
+          <div class="stat"><div class="k">Error</div><div class="v" id="errorVal">--</div></div>
+          <div class="stat"><div class="k">PWM</div><div class="v" id="pwmVal">--</div></div>
+        </div>
+
+        <div class="inline-cal">
+          <h3>Joystick Calibration</h3>
+          <div class="row">
+            <button id="calStart" class="ok">Start</button>
+            <button id="calCenterBtn" class="secondary">Set Center</button>
+            <button id="calStop" class="warn">Finish</button>
+          </div>
+          <div class="small">Min: <span id="calMin">--</span></div>
+          <div class="small">Max: <span id="calMax">--</span></div>
+          <div class="small">Center: <span id="calCenter">--</span></div>
+        </div>
+      </div>
+
+
+      <div class="card">
+        <h2>Joystick Response</h2>
+
+        <div class="small" style="margin-bottom:10px;">Shape how joystick movement turns into steering command. This is separate from joystick calibration and steering travel limits.</div>
+
+        <div class="response-graph-wrap">
+          <canvas id="responseCanvas" width="320" height="120"></canvas>
+        </div>
+
+        <div class="label">Curve Mode</div>
+        <div class="row response-mode-row">
+          <button id="curveLinearBtn" class="secondary response-mode active-mode">Linear</button>
+          <button id="curveSoftBtn" class="secondary response-mode">Soft Center</button>
+          <button id="curveAggressiveBtn" class="secondary response-mode">Aggressive</button>
+        </div>
+
+        <div class="label">Sensitivity</div>
+        <div class="row response-slider-row">
+          <input id="sensitivityInput" type="range" min="0" max="100" value="50" />
+          <div class="response-value" id="sensitivityVal">50</div>
+        </div>
+
+        <div class="label">Smoothing</div>
+        <div class="row response-slider-row">
+          <input id="smoothingInput" type="range" min="0" max="100" value="20" />
+          <div class="response-value" id="smoothingVal">20</div>
+        </div>
+
+        <div class="row">
+          <button id="sendResponseBtn" class="ok">Send Response Settings</button>
+        </div>
+
+        <div class="small">Suggested starting point for a boat: <b>Soft Center</b> with light smoothing.</div>
+
+<div class="card">
+        <h2>Calibration</h2>
+        <div class="row">
+          <button id="saveBtn" class="ok">Save Settings</button>
+        </div>
+
+        <div class="cal-3row">
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button id="leftBtn" class="warn cal-small">Capture Left</button>
+            <input id="leftVal" type="number" placeholder="Left Raw" style="text-align:center;">
+          </div>
+          <div style="display:flex;flex-direction:column;justify-content:center;">
+            <button id="centerBtn" class="ok cal-center">Set Straight Center</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button id="rightBtn" class="warn cal-small">Capture Right</button>
+            <input id="rightVal" type="number" placeholder="Right Raw" style="text-align:center;">
+          </div>
+        </div>
+        <div class="row">
+          <button id="applyPotLimitsBtn" class="secondary">Apply Pot Limits</button>
+          <button id="limitsOffBtn" class="danger">Limits Off</button>
+          <button id="limitsWideBtn" class="warn">Limits Wide</button>
+          <button id="limitsOnBtn" class="ok">Limits On</button>
+        </div>
+      </div>
+<div class="small">Click <b>Set Straight Center</b> when the boat is physically steering dead straight.</div>
+      </div>
+
+      <div class="card">
+        <h2>ESP Raw State</h2>
+        <textarea id="espRawBox" class="log" readonly style="min-height:320px;"></textarea>
+        <div class="footer">Live current STATUS packet from the ESP.</div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1">
+        <h2>Serial Log</h2>
+        <textarea id="log" class="log" readonly></textarea>
+        <div class="footer">Expected commands: STATUS, CENTER, CALMIN, CALMAX, SAVE, STOP, KP, DEADBAND, MAXPWM, MINPWM, RATE, STREAM, TARGET, NUDGE_FINE, NUDGE_COARSE.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let port = null, reader = null, writer = null, keepReading = false, statusBuffer = {};
+    let partialLine = ""; // handles chunked serial
+    let isConnecting = false;
+    let isDisconnecting = false;
+    let pollTimer = null;
+
+    const logEl = document.getElementById('log');
+    const espRawBox = document.getElementById('espRawBox');
+    const connState = document.getElementById('connState');
+    const lastCmd = document.getElementById('lastCmd');
+    const streamState = document.getElementById('streamState');
+
+    const valueEls = {
+      POT_RAW: document.getElementById('potRaw'),
+      POT_REL: document.getElementById('potRel'),
+      CENTER_RAW: document.getElementById('centerRaw'),
+      JOY_RAW: document.getElementById('joyRaw'),
+      JOY_RATE: document.getElementById('joyRate'),
+      JOY_PCT: document.getElementById('joyPct'),
+      TARGET_REL: document.getElementById('targetRel'),
+      ERROR: document.getElementById('errorVal'),
+      PWM: document.getElementById('pwmVal')
+    };
+
+    const LOG_MAX_LINES = 300;
+    function log(msg) {
+      const stamp = new Date().toLocaleTimeString();
+      const lines = logEl.value ? logEl.value.split('\n') : [];
+      lines.push(`[${stamp}] ${msg}`);
+      if (lines.length > LOG_MAX_LINES) lines.splice(0, lines.length - LOG_MAX_LINES);
+      logEl.value = lines.join('\n');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function renderEspRaw(obj) {
+      if (!espRawBox) return;
+      const lines = [];
+      for (const [k, v] of Object.entries(obj)) {
+        lines.push(`${k}=${v}`);
+      }
+      espRawBox.value = lines.join('\n');
+      espRawBox.scrollTop = 0;
+    }
+
+    function setConnected(on) {
+      connState.textContent = on ? 'Connected' : 'Disconnected';
+      connState.style.background = on ? '#163b25' : '#3d2230';
+    }
+
+    function setStream(on) {
+      streamState.textContent = 'Status polling: ' + (on ? 'on' : 'off');
+      streamState.style.background = on ? '#163b25' : '#223551';
+    }
+
+    function applyStatus(obj) {
+      // Calculate POT_REL if not provided by firmware
+      if (obj.POT_RAW !== undefined && obj.CENTER_RAW !== undefined && obj.POT_REL === undefined) {
+        obj.POT_REL = parseInt(obj.POT_RAW, 10) - parseInt(obj.CENTER_RAW, 10);
+      }
+
+      Object.entries(valueEls).forEach(([k, el]) => {
+        if (obj[k] !== undefined) el.textContent = obj[k];
+      });
+
+      let pct = null;
+      if (obj.JOY_PCT !== undefined) {
+        pct = parseFloat(obj.JOY_PCT);
+      } else if (obj.JOY_RATE !== undefined) {
+        const jr = parseFloat(obj.JOY_RATE);
+        if (!Number.isNaN(jr)) pct = Math.round(jr * 100);
+      }
+
+      if (pct !== null && !Number.isNaN(pct)) {
+        if (valueEls.JOY_PCT) valueEls.JOY_PCT.textContent = Math.round(pct);
+        const marker = document.getElementById('joyMarker');
+        if (marker) {
+          const clamped = Math.max(-100, Math.min(100, pct));
+          marker.style.left = `${50 + (clamped / 2)}%`;
+        }
+      }
+
+      if (obj.STREAM !== undefined) setStream(obj.STREAM === '1');
+    }
+
+    // <-- FIXED: robust, buffered parser — RX data lines suppressed from serial log (too noisy)
+    function handleIncomingText(text) {
+      const full = partialLine + text;
+      const lines = full.split(/\r?\n/);
+      partialLine = lines.pop(); // keep incomplete tail
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        if (line === 'STATUS_BEGIN') { statusBuffer = {}; continue; }
+        if (line === 'STATUS_END') { applyStatus(statusBuffer); renderEspRaw(statusBuffer); continue; }
+
+        // SAVED confirmation flash
+        if (line === 'SAVED') {
+          const btn = document.getElementById('saveBtn');
+          if (btn) {
+            const orig = btn.textContent;
+            btn.textContent = 'Saved ✓';
+            btn.style.background = 'var(--ok)';
+            setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1800);
+          }
+          log('ESP: settings saved to flash');
+          continue;
+        }
+
+        const eq = line.indexOf('=');
+        if (eq > 0) {
+          const key = line.slice(0, eq);
+          const val = line.slice(eq + 1);
+          statusBuffer[key] = val;
+        } else {
+          // Non-status lines (BOOT OK etc) go to log
+          log('RX: ' + line);
+        }
+      }
+    }
+
+    let pollInFlight = false;
+    function startStatusPolling() {
+      stopStatusPolling();
+      pollTimer = setInterval(async () => {
+        if (writer && port && !pollInFlight) {
+          pollInFlight = true;
+          try { await sendCommand('STATUS'); } finally { pollInFlight = false; }
+        }
+      }, 200);
+    }
+
+    function stopStatusPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    async function connectSerial() {
+      if (isConnecting) return;
+      isConnecting = true;
+      const btn = document.getElementById('connectBtn');
+      const oldText = btn ? btn.textContent : '';
+      try {
+        if (!('serial' in navigator)) {
+          alert('This browser does not support Web Serial. Use a Chromium-based browser.');
+          return;
+        }
+
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Connecting...';
+        }
+
+        // Clean up any stale previous session first
+        try { await disconnectSerial(true); } catch (e) {}
+
+        partialLine = "";
+        statusBuffer = {};
+        if (espRawBox) espRawBox.value = '';
+
+        const requestedPort = await navigator.serial.requestPort();
+        await requestedPort.open({
+          baudRate: 115200,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'none',
+          flowControl: 'none',
+          bufferSize: 4096
+        });
+
+        port = requestedPort;
+        writer = port.writable ? port.writable.getWriter() : null;
+        keepReading = true;
+        setConnected(true);
+        setStream(false);
+        log('USB serial connected');
+        readLoop();
+        startStatusPolling();
+      } catch (err) {
+        port = null;
+        if (writer) {
+          try { writer.releaseLock(); } catch(e) {}
+          writer = null;
+        }
+        setConnected(false);
+        setStream(false);
+        const msg = err && err.message ? err.message : String(err);
+        log('Connect failed: ' + msg);
+        alert('USB connect failed: ' + msg);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = oldText || 'Connect USB';
+        }
+        isConnecting = false;
+      }
+    }
+
+    async function disconnectSerial(silent = false) {
+      if (isDisconnecting) return;
+      isDisconnecting = true;
+      try {
+        stopStatusPolling();
+        keepReading = false;
+
+        if (reader) {
+          try { await reader.cancel(); } catch(e) {}
+          try { reader.releaseLock(); } catch(e) {}
+          reader = null;
+        }
+
+        if (writer) {
+          try { writer.releaseLock(); } catch(e) {}
+          writer = null;
+        }
+
+        if (port) {
+          try { await port.close(); } catch(e) {}
+          port = null;
+        }
+
+        partialLine = "";
+        statusBuffer = {};
+        espInitDone = false;
+        setConnected(false);
+        setStream(false);
+        if (!silent) log('Disconnected');
+      } catch (err) {
+        log('Disconnect error: ' + (err && err.message ? err.message : String(err)));
+      } finally {
+        isDisconnecting = false;
+      }
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+      while (port && keepReading) {
+        if (!port.readable) {
+          log('Port not readable - waiting...');
+          await new Promise(r => setTimeout(r, 200));
+          continue;
+        }
+        try {
+          reader = port.readable.getReader();
+          while (keepReading) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value && value.length) handleIncomingText(decoder.decode(value, { stream: true }));
+          }
+        } catch (err) {
+          if (keepReading) {
+            log('Read error (auto-recovering): ' + (err && err.message ? err.message : String(err)));
+            await new Promise(r => setTimeout(r, 150)); // brief pause before retry
+          }
+        } finally {
+          if (reader) {
+            try { reader.releaseLock(); } catch(e) {}
+            reader = null;
+          }
+        }
+      }
+    }
+
+    async function sendCommand(cmd) {
+      if (!writer || !port) {
+        log('Not connected — command dropped: ' + cmd);
+        return;
+      }
+      try {
+        const line = cmd.trim() + '\n';
+        await writer.write(new TextEncoder().encode(line));
+        lastCmd.textContent = 'Last command: ' + cmd.trim();
+        log('TX: ' + cmd.trim());
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        log('Send error: ' + msg);
+        // No alert() — alerts block the JS thread and kill the read loop
+      }
+    }
+
+    document.getElementById('connectBtn').onclick = connectSerial;
+    document.getElementById('disconnectBtn').onclick = disconnectSerial;
+    document.getElementById('centerBtn').onclick = () => sendCommand('CENTER');
+    // leftBtn / rightBtn handled exclusively by the IIFE below to avoid double-fire
+    document.getElementById('saveBtn').onclick = () => sendCommand('SAVE');
+
+    document.getElementById('kpBtn').onclick = () => sendCommand('KP ' + document.getElementById('kpInput').value);
+    // KD not implemented in firmware
+    document.getElementById('kdBtn').disabled = true;
+    document.getElementById('kdBtn').title = 'KD not implemented in firmware';
+    document.getElementById('deadbandBtn').onclick = () => sendCommand('DEADBAND ' + document.getElementById('deadbandInput').value);
+    document.getElementById('maxpwmBtn').onclick = () => sendCommand('MAXPWM ' + document.getElementById('maxpwmInput').value);
+    document.getElementById('minpwmBtn').onclick = () => sendCommand('MINPWM ' + document.getElementById('minpwmInput').value);
+    // RATE not implemented in firmware
+    document.getElementById('rateBtn').disabled = true;
+    document.getElementById('rateBtn').title = 'RATE not implemented in firmware';
+
+    // Rotary trim — fine / coarse step values
+    document.getElementById('nudgeFineBtn').onclick = () => {
+      const v = parseInt(document.getElementById('nudgeFineInput').value, 10);
+      if (!Number.isFinite(v) || v < 1) { log('Fine step must be a positive integer'); return; }
+      sendCommand('NUDGE_FINE ' + v);
+    };
+    document.getElementById('nudgeCoarseBtn').onclick = () => {
+      const v = parseInt(document.getElementById('nudgeCoarseInput').value, 10);
+      if (!Number.isFinite(v) || v < 1) { log('Coarse step must be a positive integer'); return; }
+      sendCommand('NUDGE_COARSE ' + v);
+    };
+
+
+    // ===== JOYSTICK RESPONSE GRAPH =====
+    let curveMode = 'soft';
+    const sensitivityInput = document.getElementById('sensitivityInput');
+    const smoothingInput = document.getElementById('smoothingInput');
+    const sensitivityVal = document.getElementById('sensitivityVal');
+    const smoothingVal = document.getElementById('smoothingVal');
+    const responseCanvas = document.getElementById('responseCanvas');
+    const rctx = responseCanvas.getContext('2d');
+
+    function setCurveMode(mode) {
+      curveMode = mode;
+      document.querySelectorAll('.response-mode').forEach(btn => btn.classList.remove('active-mode'));
+      if (mode === 'linear') document.getElementById('curveLinearBtn').classList.add('active-mode');
+      if (mode === 'soft') document.getElementById('curveSoftBtn').classList.add('active-mode');
+      if (mode === 'aggressive') document.getElementById('curveAggressiveBtn').classList.add('active-mode');
+      drawResponseGraph();
+    }
+
+    function shapedOutput(x) {
+      const s = parseInt(sensitivityInput.value, 10) / 100; // 0..1
+      let y = x;
+
+      if (curveMode === 'linear') {
+        y = x;
+      } else if (curveMode === 'soft') {
+        // softer around center, stronger toward ends
+        const expo = 1.0 + s * 2.2; // 1..3.2
+        y = Math.sign(x) * Math.pow(Math.abs(x), expo);
+      } else if (curveMode === 'aggressive') {
+        // faster around center, still clamped to 1 at ends
+        const mix = 0.25 + s * 0.55;
+        y = (1 - mix) * x + mix * Math.sign(x) * Math.sqrt(Math.abs(x));
+      }
+
+      if (y > 1) y = 1;
+      if (y < -1) y = -1;
+      return y;
+    }
+
+    function drawResponseGraph() {
+      const w = responseCanvas.width;
+      const h = responseCanvas.height;
+      rctx.clearRect(0, 0, w, h);
+
+      // border
+      rctx.strokeStyle = '#294264';
+      rctx.lineWidth = 1;
+      rctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+
+      // axes
+      rctx.strokeStyle = '#9db0cf';
+      rctx.beginPath();
+      rctx.moveTo(0, h / 2);
+      rctx.lineTo(w, h / 2);
+      rctx.moveTo(w / 2, 0);
+      rctx.lineTo(w / 2, h);
+      rctx.stroke();
+
+      // reference linear line
+      rctx.strokeStyle = '#39557d';
+      rctx.beginPath();
+      for (let i = 0; i <= 200; i++) {
+        const x = -1 + (i / 200) * 2;
+        const px = (x + 1) * 0.5 * w;
+        const py = h - ((x + 1) * 0.5 * h);
+        if (i === 0) rctx.moveTo(px, py); else rctx.lineTo(px, py);
+      }
+      rctx.stroke();
+
+      // response curve
+      rctx.strokeStyle = '#4da3ff';
+      rctx.lineWidth = 3;
+      rctx.beginPath();
+      for (let i = 0; i <= 240; i++) {
+        const x = -1 + (i / 240) * 2;
+        const y = shapedOutput(x);
+        const px = (x + 1) * 0.5 * w;
+        const py = h - ((y + 1) * 0.5 * h);
+        if (i === 0) rctx.moveTo(px, py); else rctx.lineTo(px, py);
+      }
+      rctx.stroke();
+
+      // labels
+      rctx.fillStyle = '#9db0cf';
+      rctx.font = '12px Arial';
+      rctx.fillText('Input', w - 36, h / 2 - 8);
+      rctx.fillText('Output', w / 2 + 8, 14);
+    }
+
+    sensitivityInput.addEventListener('input', () => {
+      sensitivityVal.textContent = sensitivityInput.value;
+      drawResponseGraph();
+    });
+
+    smoothingInput.addEventListener('input', () => {
+      smoothingVal.textContent = smoothingInput.value;
+    });
+
+    document.getElementById('curveLinearBtn').onclick = () => setCurveMode('linear');
+    document.getElementById('curveSoftBtn').onclick = () => setCurveMode('soft');
+    document.getElementById('curveAggressiveBtn').onclick = () => setCurveMode('aggressive');
+
+    document.getElementById('sendResponseBtn').onclick = async () => {
+      // NOTE: CURVE/SENS/SMOOTH not implemented in firmware yet - log only
+      log('Response curve is display-only — add CURVE/SENS/SMOOTH to firmware handleCommand to enable');
+    };
+
+    drawResponseGraph();
+
+    if ('serial' in navigator) {
+      navigator.serial.addEventListener('disconnect', async () => {
+        await disconnectSerial(true);
+        log('USB device disconnected');
+      });
+    }
+
+    setConnected(false);
+    setStream(false);
+    log('Panel ready');
+
+// ===== JOYSTICK CALIBRATION =====
+let currentJoyRaw = null;
+let calActive = false;
+let calMin = 99999;
+let calMax = 0;
+
+// ===== FEEDBACK POT LIMIT UI =====
+let currentPotRaw = null;
+
+// One-shot flag — tuning inputs only populated from ESP on first status after connect
+let espInitDone = false;
+
+function initInputsFromEsp(obj) {
+  // Called once per connection to seed fields with saved ESP values
+  if (obj.KP_VAL !== undefined)        { const el = document.getElementById('kpInput');          if (el) el.value = obj.KP_VAL; }
+  if (obj.DEADBAND_VAL !== undefined)   { const el = document.getElementById('deadbandInput');    if (el) el.value = obj.DEADBAND_VAL; }
+  if (obj.MAXPWM_VAL !== undefined)     { const el = document.getElementById('maxpwmInput');      if (el) el.value = obj.MAXPWM_VAL; }
+  if (obj.MINPWM_VAL !== undefined)     { const el = document.getElementById('minpwmInput');      if (el) el.value = obj.MINPWM_VAL; }
+  if (obj.LEFT_LIMIT !== undefined)     { const el = document.getElementById('leftVal');          if (el) el.value = obj.LEFT_LIMIT; }
+  if (obj.RIGHT_LIMIT !== undefined)    { const el = document.getElementById('rightVal');         if (el) el.value = obj.RIGHT_LIMIT; }
+  // Rotary trim step sizes
+  if (obj.NUDGE_FINE_VAL !== undefined) { const el = document.getElementById('nudgeFineInput');   if (el) el.value = obj.NUDGE_FINE_VAL; }
+  if (obj.NUDGE_CRS_VAL !== undefined)  { const el = document.getElementById('nudgeCoarseInput'); if (el) el.value = obj.NUDGE_CRS_VAL; }
+}
+
+// Single consolidated applyStatus extension
+const _applyBase = applyStatus;
+applyStatus = function(obj) {
+  _applyBase(obj);
+
+  // Seed input fields once on first status packet after connect
+  if (!espInitDone) {
+    initInputsFromEsp(obj);
+    espInitDone = true;
+  }
+
+  // --- Joystick calibration tracking ---
+  if (obj.JOY_RAW !== undefined) {
+    const v = parseInt(obj.JOY_RAW, 10);
+    if (!Number.isNaN(v)) {
+      currentJoyRaw = v;
+      if (calActive) {
+        if (v < calMin) calMin = v;
+        if (v > calMax) calMax = v;
+        document.getElementById('calMin').textContent = calMin;
+        document.getElementById('calMax').textContent = calMax;
+      }
+    }
+  }
+
+  // --- Populate cal display fields from ESP status (display-only spans, not inputs) ---
+  if (obj.CENTER_RAW !== undefined) {
+    const c = document.getElementById('calCenter');
+    if (c) c.textContent = obj.CENTER_RAW;
+  }
+  if (obj.JOY_MIN !== undefined) {
+    const el = document.getElementById('calMin');
+    if (el && !calActive) el.textContent = obj.JOY_MIN;
+  }
+  if (obj.JOY_MAX !== undefined) {
+    const el = document.getElementById('calMax');
+    if (el && !calActive) el.textContent = obj.JOY_MAX;
+  }
+
+  // --- Pot raw tracking ---
+  if (obj.POT_RAW !== undefined) {
+    const v = parseInt(obj.POT_RAW, 10);
+    if (!Number.isNaN(v)) currentPotRaw = v;
+  }
+};
+
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'calStart') {
+    calActive = true;
+    calMin = 99999;
+    calMax = 0;
+    document.getElementById('calMin').textContent = '--';
+    document.getElementById('calMax').textContent = '--';
+    log('Joystick cal started — move joystick to full extents');
+  }
+
+  if (e.target.id === 'calCenterBtn') {
+    if (currentJoyRaw === null) {
+      log('CAL: no joystick data yet — wait for first status packet');
+      return;
+    }
+    const c = document.getElementById('calCenter');
+    if (c) c.textContent = currentJoyRaw;
+    await sendCommand('JOYCENTER ' + currentJoyRaw);
+    log('CAL: center set to ' + currentJoyRaw + ' (saved to ESP flash)');
+  }
+
+  if (e.target.id === 'calStop') {
+    calActive = false;
+    document.getElementById('calMin').textContent = calMin;
+    document.getElementById('calMax').textContent = calMax;
+    await sendCommand('JOYMIN ' + calMin);
+    await sendCommand('JOYMAX ' + calMax);
+    log('CAL: finished — min=' + calMin + ' max=' + calMax + ' (saved to ESP flash)');
+  }
+});
+
+(function(){
+  const leftBtn = document.getElementById('leftBtn');
+  const rightBtn = document.getElementById('rightBtn');
+  const leftVal = document.getElementById('leftVal');
+  const rightVal = document.getElementById('rightVal');
+  const applyBtn = document.getElementById('applyPotLimitsBtn');
+  const offBtn = document.getElementById('limitsOffBtn');
+  const wideBtn = document.getElementById('limitsWideBtn');
+  const onBtn = document.getElementById('limitsOnBtn');
+
+  if(leftBtn){
+    leftBtn.addEventListener('click', async function(){
+      if(currentPotRaw !== null && leftVal) leftVal.value = currentPotRaw;
+      await sendCommand('CAPLEFT');
+    });
+  }
+
+  if(rightBtn){
+    rightBtn.addEventListener('click', async function(){
+      if(currentPotRaw !== null && rightVal) rightVal.value = currentPotRaw;
+      await sendCommand('CAPRIGHT');
+    });
+  }
+
+  if(applyBtn){
+    applyBtn.addEventListener('click', async function(){
+      const left = leftVal ? leftVal.value.trim() : '';
+      const right = rightVal ? rightVal.value.trim() : '';
+      if(left !== '') await sendCommand('ENC LIMIT LEFT ' + left);
+      console.log('LEFT SET TO', left);
+      if(right !== '') await sendCommand('ENC LIMIT RIGHT ' + right);
+      console.log('RIGHT SET TO', right);
+      await sendCommand('SAVE');
+    });
+  }
+
+  if(offBtn){
+    offBtn.addEventListener('click', async function(){
+      log('LIMITS OFF not implemented in firmware');
+    });
+  }
+
+  if(wideBtn){
+    wideBtn.addEventListener('click', async function(){
+      log('LIMITS WIDE not implemented in firmware');
+    });
+  }
+
+  if(onBtn){
+    onBtn.addEventListener('click', async function(){
+      log('LIMITS ON not implemented in firmware');
+    });
+  }
+})();
+
+</script>
+</body>
+</html>
